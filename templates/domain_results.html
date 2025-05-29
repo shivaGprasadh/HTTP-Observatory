@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+
+{% block title %}{{ domain.hostname }} - Security Results{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Domains</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">{{ domain.hostname }}</li>
+                </ol>
+            </nav>
+            
+            <h1 class="display-5 mb-3">
+                <i class="fas fa-shield-alt me-3"></i>
+                Security Results for {{ domain.hostname }}
+            </h1>
+            
+            <div class="d-flex gap-2 mb-3">
+                <a href="{{ url_for('scan_domain', domain_id=domain.id) }}" class="btn btn-primary">
+                    <i class="fas fa-sync-alt me-1"></i>
+                    Rescan Domain
+                </a>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>
+                    Back to Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% if scans %}
+        {% set latest_scan = scans[0] %}
+        
+        <!-- Latest Scan Overview -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-primary">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-chart-bar me-2"></i>
+                            Latest Scan Results
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {% if latest_scan.status == 'completed' %}
+                            <div class="row">
+                                <div class="col-md-3 text-center">
+                                    <h3 class="text-{% if latest_scan.overall_score and latest_scan.overall_score >= 80 %}success{% elif latest_scan.overall_score and latest_scan.overall_score >= 50 %}warning{% else %}danger{% endif %}">
+                                        {{ latest_scan.overall_score or 'N/A' }}
+                                    </h3>
+                                    <p class="text-muted mb-0">Overall Score</p>
+                                </div>
+                                <div class="col-md-3 text-center">
+                                    <h3 class="text-{% if latest_scan.grade in ['A+', 'A'] %}success{% elif latest_scan.grade in ['B+', 'B'] %}info{% elif latest_scan.grade in ['C+', 'C'] %}warning{% else %}danger{% endif %}">
+                                        {{ latest_scan.grade or 'N/A' }}
+                                    </h3>
+                                    <p class="text-muted mb-0">Security Grade</p>
+                                </div>
+                                <div class="col-md-3 text-center">
+                                    <h3 class="text-info">
+                                        {{ latest_scan.scan_date.strftime('%Y-%m-%d') if latest_scan.scan_date else 'N/A' }}
+                                    </h3>
+                                    <p class="text-muted mb-0">Scan Date</p>
+                                </div>
+                                <div class="col-md-3 text-center">
+                                    {% set total_issues = ((latest_scan.csp_issues|from_json|length if latest_scan.csp_issues else 0) + 
+                                                          (latest_scan.cookie_issues|from_json|length if latest_scan.cookie_issues else 0) + 
+                                                          (latest_scan.header_issues|from_json|length if latest_scan.header_issues else 0)) %}
+                                    <h3 class="text-{% if total_issues == 0 %}success{% elif total_issues <= 3 %}warning{% else %}danger{% endif %}">
+                                        {{ total_issues }}
+                                    </h3>
+                                    <p class="text-muted mb-0">Total Issues</p>
+                                </div>
+                            </div>
+                        {% elif latest_scan.status == 'failed' %}
+                            <div class="alert alert-danger" role="alert">
+                                <h6 class="alert-heading">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    Scan Failed
+                                </h6>
+                                <p class="mb-0">{{ latest_scan.error_message or 'Unknown error occurred during scan' }}</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Security Issues Breakdown -->
+        {% if latest_scan.status == 'completed' %}
+        <div class="row mb-4">
+            <!-- CSP Issues -->
+            <div class="col-lg-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-shield-alt me-2"></i>
+                            Content Security Policy
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        {% set csp_issues = latest_scan.csp_issues|from_json if latest_scan.csp_issues else [] %}
+                        {% if csp_issues %}
+                            <div class="mb-2">
+                                <span class="badge bg-danger">{{ csp_issues|length }} Issues Found</span>
+                            </div>
+                            <ul class="list-unstyled mb-0">
+                                {% for issue in csp_issues %}
+                                <li class="mb-2">
+                                    <small class="text-danger">
+                                        <i class="fas fa-exclamation-circle me-1"></i>
+                                        {{ issue.test or 'CSP Issue' }}
+                                    </small>
+                                    {% if issue.score_description %}
+                                    <br><small class="text-muted">{{ issue.score_description }}</small>
+                                    {% endif %}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <div class="text-center text-success">
+                                <i class="fas fa-check-circle fa-2x mb-2"></i>
+                                <p class="mb-0">No CSP issues found</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cookie Issues -->
+            <div class="col-lg-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-cookie-bite me-2"></i>
+                            Cookie Security
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        {% set cookie_issues = latest_scan.cookie_issues|from_json if latest_scan.cookie_issues else [] %}
+                        {% if cookie_issues %}
+                            <div class="mb-2">
+                                <span class="badge bg-warning">{{ cookie_issues|length }} Issues Found</span>
+                            </div>
+                            <ul class="list-unstyled mb-0">
+                                {% for issue in cookie_issues %}
+                                <li class="mb-2">
+                                    <small class="text-warning">
+                                        <i class="fas fa-exclamation-triangle me-1"></i>
+                                        {{ issue.test or 'Cookie Issue' }}
+                                    </small>
+                                    {% if issue.score_description %}
+                                    <br><small class="text-muted">{{ issue.score_description }}</small>
+                                    {% endif %}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <div class="text-center text-success">
+                                <i class="fas fa-check-circle fa-2x mb-2"></i>
+                                <p class="mb-0">No cookie issues found</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Header Issues -->
+            <div class="col-lg-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-server me-2"></i>
+                            HTTP Headers
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        {% set header_issues = latest_scan.header_issues|from_json if latest_scan.header_issues else [] %}
+                        {% if header_issues %}
+                            <div class="mb-2">
+                                <span class="badge bg-info">{{ header_issues|length }} Issues Found</span>
+                            </div>
+                            <ul class="list-unstyled mb-0">
+                                {% for issue in header_issues %}
+                                <li class="mb-2">
+                                    <small class="text-info">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        {{ issue.test or 'Header Issue' }}
+                                    </small>
+                                    {% if issue.score_description %}
+                                    <br><small class="text-muted">{{ issue.score_description }}</small>
+                                    {% endif %}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <div class="text-center text-success">
+                                <i class="fas fa-check-circle fa-2x mb-2"></i>
+                                <p class="mb-0">No header issues found</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Scan History -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-history me-2"></i>
+                            Scan History
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Score</th>
+                                        <th>Grade</th>
+                                        <th>Status</th>
+                                        <th>Issues</th>
+                                        <th>Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for scan in scans %}
+                                    <tr class="{% if loop.first %}table-primary{% endif %}">
+                                        <td>
+                                            <small>{{ scan.scan_date.strftime('%Y-%m-%d %H:%M') if scan.scan_date else 'N/A' }}</small>
+                                            {% if loop.first %}<span class="badge bg-primary ms-1">Latest</span>{% endif %}
+                                        </td>
+                                        <td>
+                                            {% if scan.overall_score is not none %}
+                                                <span class="badge bg-{% if scan.overall_score >= 80 %}success{% elif scan.overall_score >= 50 %}warning{% else %}danger{% endif %}">
+                                                    {{ scan.overall_score }}
+                                                </span>
+                                            {% else %}
+                                                <span class="text-muted">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if scan.grade %}
+                                                <span class="badge bg-{% if scan.grade in ['A+', 'A'] %}success{% elif scan.grade in ['B+', 'B'] %}info{% elif scan.grade in ['C+', 'C'] %}warning{% else %}danger{% endif %}">
+                                                    {{ scan.grade }}
+                                                </span>
+                                            {% else %}
+                                                <span class="text-muted">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if scan.status == 'completed' %}
+                                                <span class="badge bg-success">Completed</span>
+                                            {% elif scan.status == 'failed' %}
+                                                <span class="badge bg-danger">Failed</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ scan.status|title }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if scan.status == 'completed' %}
+                                                {% set total_issues = ((scan.csp_issues|from_json|length if scan.csp_issues else 0) + 
+                                                                      (scan.cookie_issues|from_json|length if scan.cookie_issues else 0) + 
+                                                                      (scan.header_issues|from_json|length if scan.header_issues else 0)) %}
+                                                <small class="text-{% if total_issues == 0 %}success{% elif total_issues <= 3 %}warning{% else %}danger{% endif %}">
+                                                    {{ total_issues }} issues
+                                                </small>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if scan.error_message %}
+                                                <small class="text-danger">{{ scan.error_message[:50] }}{% if scan.error_message|length > 50 %}...{% endif %}</small>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    {% else %}
+        <!-- No Scans Available -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body text-center py-5">
+                        <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No scans available for this domain</h5>
+                        <p class="text-muted">Run your first security scan to see detailed results.</p>
+                        <a href="{{ url_for('scan_domain', domain_id=domain.id) }}" class="btn btn-primary">
+                            <i class="fas fa-search me-1"></i>
+                            Start First Scan
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

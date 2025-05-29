@@ -1,0 +1,224 @@
+/* Custom styles for Observatory Scanner */
+
+:root {
+    --primary-hue: 210;
+    --success-hue: 142;
+    --warning-hue: 45;
+    --danger-hue: 354;
+    --info-hue: 188;
+    
+    /* Security status colors */
+    --security-excellent: 142 76% 36%; /* #22c55e */
+    --security-good: 45 93% 47%; /* #eab308 */
+    --security-poor: 354 70% 54%; /* #ef4444 */
+    --security-critical: 0 84% 60%; /* #dc2626 */
+}
+
+/* Security grade badges */
+.badge.grade-a-plus,
+.badge.grade-a {
+    background-color: hsl(var(--security-excellent)) !important;
+}
+
+.badge.grade-b-plus,
+.badge.grade-b {
+    background-color: hsl(var(--info-hue) 76% 50%) !important;
+}
+
+.badge.grade-c-plus,
+.badge.grade-c {
+    background-color: hsl(var(--security-good)) !important;
+}
+
+.badge.grade-d,
+.badge.grade-e,
+.badge.grade-f {
+    background-color: hsl(var(--security-poor)) !important;
+}
+
+/* Score indicators */
+.score-excellent {
+    color: hsl(var(--security-excellent));
+}
+
+.score-good {
+    color: hsl(var(--security-good));
+}
+
+.score-poor {
+    color: hsl(var(--security-poor));
+}
+
+.score-critical {
+    color: hsl(var(--security-critical));
+}
+
+/* Loading states */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.loading-spinner {
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top: 4px solid #fff;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Security icons */
+.security-icon {
+    font-size: 1.2em;
+    margin-right: 0.5rem;
+}
+
+.security-icon.critical {
+    color: hsl(var(--security-critical));
+}
+
+.security-icon.poor {
+    color: hsl(var(--security-poor));
+}
+
+.security-icon.good {
+    color: hsl(var(--security-good));
+}
+
+.security-icon.excellent {
+    color: hsl(var(--security-excellent));
+}
+
+/* Card hover effects */
+.card:hover {
+    transform: translateY(-2px);
+    transition: transform 0.2s ease-in-out;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Table row highlighting */
+.table-hover tbody tr:hover {
+    background-color: rgba(var(--bs-primary-rgb), 0.05);
+}
+
+/* Custom button styles */
+.btn-scan {
+    background: linear-gradient(45deg, hsl(var(--primary-hue) 100% 60%), hsl(var(--primary-hue) 100% 70%));
+    border: none;
+    color: white;
+}
+
+.btn-scan:hover {
+    background: linear-gradient(45deg, hsl(var(--primary-hue) 100% 50%), hsl(var(--primary-hue) 100% 60%));
+    transform: translateY(-1px);
+}
+
+/* Status badges */
+.status-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+}
+
+/* Responsive design improvements */
+@media (max-width: 768px) {
+    .display-4 {
+        font-size: 2rem;
+    }
+    
+    .btn-group-sm .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+    
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+}
+
+/* Dark theme improvements */
+[data-bs-theme="dark"] .card {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.125);
+}
+
+[data-bs-theme="dark"] .table > :not(caption) > * > * {
+    border-bottom-color: rgba(255, 255, 255, 0.125);
+}
+
+[data-bs-theme="dark"] .alert {
+    background-color: rgba(var(--bs-alert-bg-rgb), 0.1);
+    border-color: rgba(var(--bs-alert-border-color-rgb), 0.2);
+}
+
+/* Breadcrumb styling */
+.breadcrumb {
+    background-color: transparent;
+    padding: 0;
+    margin-bottom: 1rem;
+}
+
+/* Footer styling */
+footer {
+    margin-top: auto;
+}
+
+/* Form improvements */
+.form-control:focus {
+    border-color: hsl(var(--primary-hue) 100% 60%);
+    box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
+}
+
+/* Icon improvements */
+.fas, .far {
+    width: 1em;
+    text-align: center;
+}
+
+/* Custom scrollbar for webkit browsers */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(var(--bs-secondary-rgb), 0.5);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(var(--bs-secondary-rgb), 0.7);
+}
+
+/* Print styles */
+@media print {
+    .no-print {
+        display: none !important;
+    }
+    
+    .card {
+        break-inside: avoid;
+    }
+    
+    .table {
+        font-size: 0.75rem;
+    }
+}

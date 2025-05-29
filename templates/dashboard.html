@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+
+{% block title %}Security Dashboard - Observatory Scanner{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-4 mb-3">
+                <i class="fas fa-chart-line me-3"></i>
+                Security Dashboard
+            </h1>
+            <p class="lead text-muted">
+                Overview of security scan results for all monitored domains.
+            </p>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    {% if scans %}
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-primary">
+                        <i class="fas fa-globe fa-2x mb-2"></i>
+                    </h5>
+                    <h3 class="mb-1">{{ scans|length }}</h3>
+                    <p class="text-muted mb-0">Total Domains</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-success">
+                        <i class="fas fa-check-circle fa-2x mb-2"></i>
+                    </h5>
+                    <h3 class="mb-1">{{ scans|selectattr('status', 'equalto', 'completed')|list|length }}</h3>
+                    <p class="text-muted mb-0">Successful Scans</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-danger">
+                        <i class="fas fa-exclamation-circle fa-2x mb-2"></i>
+                    </h5>
+                    <h3 class="mb-1">{{ scans|selectattr('status', 'equalto', 'failed')|list|length }}</h3>
+                    <p class="text-muted mb-0">Failed Scans</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-warning">
+                        <i class="fas fa-shield-alt fa-2x mb-2"></i>
+                    </h5>
+                    <h3 class="mb-1">
+                        {% set avg_score = scans|selectattr('overall_score')|map(attribute='overall_score')|list %}
+                        {% if avg_score %}
+                            {{ (avg_score|sum / avg_score|length)|round(1) }}
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </h3>
+                    <p class="text-muted mb-0">Avg. Score</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Export and Action Buttons -->
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">Scan Results</h4>
+            <div>
+                <a href="{{ url_for('export_csv') }}" class="btn btn-success">
+                    <i class="fas fa-download me-1"></i>
+                    Export CSV
+                </a>
+                <a href="{{ url_for('scan_all') }}" class="btn btn-primary">
+                    <i class="fas fa-sync-alt me-1"></i>
+                    Rescan All
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scan Results Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    {% if scans %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Domain</th>
+                                        <th>Score</th>
+                                        <th>Grade</th>
+                                        <th>Issues</th>
+                                        <th>Last Scan</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for scan in scans %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ scan.domain.hostname }}</strong>
+                                        </td>
+                                        <td>
+                                            {% if scan.overall_score is not none %}
+                                                <span class="badge bg-{% if scan.overall_score >= 80 %}success{% elif scan.overall_score >= 50 %}warning{% else %}danger{% endif %}">
+                                                    {{ scan.overall_score }}
+                                                </span>
+                                            {% else %}
+                                                <span class="text-muted">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if scan.grade %}
+                                                <span class="badge bg-{% if scan.grade in ['A+', 'A'] %}success{% elif scan.grade in ['B+', 'B'] %}info{% elif scan.grade in ['C+', 'C'] %}warning{% else %}danger{% endif %}">
+                                                    {{ scan.grade }}
+                                                </span>
+                                            {% else %}
+                                                <span class="text-muted">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if scan.status == 'completed' %}
+                                                {% set csp_count = (scan.csp_issues|from_json|length if scan.csp_issues else 0) %}
+                                                {% set cookie_count = (scan.cookie_issues|from_json|length if scan.cookie_issues else 0) %}
+                                                {% set header_count = (scan.header_issues|from_json|length if scan.header_issues else 0) %}
+                                                {% set total_issues = csp_count + cookie_count + header_count %}
+                                                <small>
+                                                    {% if total_issues > 0 %}
+                                                        <span class="text-danger">{{ total_issues }} issues</span>
+                                                    {% else %}
+                                                        <span class="text-success">No issues</span>
+                                                    {% endif %}
+                                                </small>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">
+                                                {{ scan.scan_date.strftime('%Y-%m-%d %H:%M') if scan.scan_date else 'N/A' }}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            {% if scan.status == 'completed' %}
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-check me-1"></i>Completed
+                                                </span>
+                                            {% elif scan.status == 'failed' %}
+                                                <span class="badge bg-danger">
+                                                    <i class="fas fa-times me-1"></i>Failed
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">
+                                                    <i class="fas fa-clock me-1"></i>{{ scan.status|title }}
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <a href="{{ url_for('domain_results', domain_id=scan.domain_id) }}" 
+                                                   class="btn btn-outline-info btn-sm">
+                                                    <i class="fas fa-eye me-1"></i>Details
+                                                </a>
+                                                <a href="{{ url_for('scan_domain', domain_id=scan.domain_id) }}" 
+                                                   class="btn btn-outline-primary btn-sm">
+                                                    <i class="fas fa-sync-alt me-1"></i>Rescan
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">No scan results available</h5>
+                            <p class="text-muted">
+                                <a href="{{ url_for('index') }}">Add domains</a> and run scans to see results here.
+                            </p>
+                            <a href="{{ url_for('index') }}" class="btn btn-primary">
+                                <i class="fas fa-plus me-1"></i>
+                                Add Domains
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-refresh dashboard every 30 seconds if there are pending scans
+    const badges = document.querySelectorAll('.badge');
+    const hasPendingScans = Array.from(badges).some(badge => 
+        badge.textContent.includes('Pending') || badge.textContent.includes('Running')
+    );
+    if (hasPendingScans) {
+        setTimeout(() => {
+            window.location.reload();
+        }, 30000);
+    }
+});
+</script>
+{% endblock %}
