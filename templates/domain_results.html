@@ -269,6 +269,366 @@
         </div>
         {% endif %}
 
+        <!-- Cookies Security Section -->
+        {% if latest_scan.status == 'completed' %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-cookie-bite me-2"></i>
+                            Cookies Security Analysis
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {% if latest_scan.csp_issues %}
+                            {% set test_results = latest_scan.csp_issues|from_json %}
+                            {% set cookies_test = test_results|selectattr('test_name', 'equalto', 'Cookies')|first %}
+                            {% if cookies_test %}
+                                <div class="alert alert-{% if cookies_test.status == 'Failed' %}danger{% elif cookies_test.status == 'Passed' %}success{% else %}info{% endif %}" role="alert">
+                                    <h6 class="alert-heading">
+                                        <span class="badge bg-{% if cookies_test.status == 'Failed' %}danger{% elif cookies_test.status == 'Passed' %}success{% else %}info{% endif %} me-2">
+                                            {{ cookies_test.status }}
+                                        </span>
+                                        Cookie Security Status
+                                    </h6>
+                                    <p class="mb-0">{{ cookies_test.score_description }}</p>
+                                    {% if cookies_test.recommendation and cookies_test.recommendation != 'None' %}
+                                        <hr class="my-2">
+                                        <p class="mb-0"><strong>Recommendation:</strong> {{ cookies_test.recommendation }}</p>
+                                    {% endif %}
+                                </div>
+
+                                {% if latest_scan.cookie_issues %}
+                                    {% set scan_info = latest_scan.cookie_issues|from_json %}
+                                    {% if scan_info and scan_info.get('cookies') %}
+                                        {% set cookies = scan_info.cookies %}
+                                        <h6 class="mt-4 mb-3">Cookie Details</h6>
+                                        <div class="table-responsive">
+                                            <table class="table table-bordered table-sm">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Cookie Name</th>
+                                                        <th>Security Flags</th>
+                                                        <th>Domain</th>
+                                                        <th>Path</th>
+                                                        <th>Expires</th>
+                                                        <th>Security Issues</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for cookie_name, cookie_data in cookies.items() %}
+                                                    <tr>
+                                                        <td><strong>{{ cookie_name }}</strong></td>
+                                                        <td>
+                                                            {% if cookie_data.get('secure') %}
+                                                                <span class="badge bg-success me-1">Secure</span>
+                                                            {% else %}
+                                                                <span class="badge bg-danger me-1">Not Secure</span>
+                                                            {% endif %}
+                                                            {% if cookie_data.get('httponly') %}
+                                                                <span class="badge bg-success me-1">HttpOnly</span>
+                                                            {% else %}
+                                                                <span class="badge bg-warning me-1">No HttpOnly</span>
+                                                            {% endif %}
+                                                            {% if cookie_data.get('samesite') %}
+                                                                <span class="badge bg-info me-1">SameSite: {{ cookie_data.samesite }}</span>
+                                                            {% else %}
+                                                                <span class="badge bg-warning me-1">No SameSite</span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td>{{ cookie_data.get('domain', 'N/A') }}</td>
+                                                        <td>{{ cookie_data.get('path', 'N/A') }}</td>
+                                                        <td>
+                                                            {% if cookie_data.get('expires') %}
+                                                                <small>{{ cookie_data.expires }}</small>
+                                                            {% else %}
+                                                                <span class="text-muted">Session</span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td>
+                                                            {% set issues = [] %}
+                                                            {% if not cookie_data.get('secure') %}
+                                                                {% set _ = issues.append('Missing Secure flag') %}
+                                                            {% endif %}
+                                                            {% if not cookie_data.get('httponly') %}
+                                                                {% set _ = issues.append('Missing HttpOnly flag') %}
+                                                            {% endif %}
+                                                            {% if not cookie_data.get('samesite') %}
+                                                                {% set _ = issues.append('Missing SameSite attribute') %}
+                                                            {% endif %}
+                                                            {% if issues %}
+                                                                <small class="text-danger">{{ issues|join(', ') }}</small>
+                                                            {% else %}
+                                                                <small class="text-success">Well configured</small>
+                                                            {% endif %}
+                                                        </td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    {% else %}
+                                        <div class="alert alert-info mt-3" role="alert">
+                                            <p class="mb-0">No cookies detected or no cookie details available for this scan.</p>
+                                        </div>
+                                    {% endif %}
+                                {% endif %}
+                            {% else %}
+                                <div class="alert alert-info" role="alert">
+                                    <p class="mb-0">No cookie security analysis data available for this scan.</p>
+                                </div>
+                            {% endif %}
+                        {% else %}
+                            <div class="alert alert-info" role="alert">
+                                <p class="mb-0">No cookie security analysis data available for this scan.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Policy Section -->
+        {% if latest_scan.status == 'completed' %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-gavel me-2"></i>
+                            Security Policy Analysis
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {% if latest_scan.cookie_issues %}
+                            {% set scan_info = latest_scan.cookie_issues|from_json %}
+                            {% if scan_info and scan_info.get('policy') %}
+                                {% set policy_data = scan_info.policy %}
+                                
+                                <!-- Content Security Policy -->
+                                {% if policy_data.get('content_security_policy') %}
+                                    {% set csp_policy = policy_data.content_security_policy %}
+                                    <div class="mb-4">
+                                        <h6 class="mb-3">
+                                            <i class="fas fa-shield-alt me-2"></i>
+                                            Content Security Policy (CSP)
+                                        </h6>
+                                        <div class="alert alert-{% if csp_policy.present %}success{% else %}warning{% endif %}" role="alert">
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <strong>Status:</strong>
+                                                <span class="badge bg-{% if csp_policy.present %}success{% else %}warning{% endif %}">
+                                                    {% if csp_policy.present %}Present{% else %}Not Present{% endif %}
+                                                </span>
+                                            </div>
+                                            {% if csp_policy.policy %}
+                                                <div class="mb-2">
+                                                    <strong>Policy:</strong>
+                                                    <code class="d-block mt-1 p-2 bg-light text-dark" style="white-space: pre-wrap; word-break: break-all;">{{ csp_policy.policy }}</code>
+                                                </div>
+                                            {% endif %}
+                                            {% if csp_policy.score_description %}
+                                                <div class="mb-2">
+                                                    <strong>Description:</strong> {{ csp_policy.score_description }}
+                                                </div>
+                                            {% endif %}
+                                            {% if csp_policy.recommendation and csp_policy.recommendation != 'None' %}
+                                                <div>
+                                                    <strong>Recommendation:</strong> {{ csp_policy.recommendation }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                {% endif %}
+
+                                <!-- Strict Transport Security -->
+                                {% if policy_data.get('strict_transport_security') %}
+                                    {% set hsts_policy = policy_data.strict_transport_security %}
+                                    <div class="mb-4">
+                                        <h6 class="mb-3">
+                                            <i class="fas fa-lock me-2"></i>
+                                            Strict Transport Security (HSTS)
+                                        </h6>
+                                        <div class="alert alert-{% if hsts_policy.present %}success{% else %}warning{% endif %}" role="alert">
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <strong>Status:</strong>
+                                                <span class="badge bg-{% if hsts_policy.present %}success{% else %}warning{% endif %}">
+                                                    {% if hsts_policy.present %}Present{% else %}Not Present{% endif %}
+                                                </span>
+                                            </div>
+                                            {% if hsts_policy.policy %}
+                                                <div class="mb-2">
+                                                    <strong>Policy:</strong>
+                                                    <code class="d-block mt-1 p-2 bg-light text-dark">{{ hsts_policy.policy }}</code>
+                                                </div>
+                                            {% endif %}
+                                            {% if hsts_policy.max_age %}
+                                                <div class="mb-2">
+                                                    <strong>Max Age:</strong> {{ hsts_policy.max_age }} seconds
+                                                </div>
+                                            {% endif %}
+                                            <div class="mb-2">
+                                                <strong>Include Subdomains:</strong> 
+                                                <span class="badge bg-{% if hsts_policy.include_subdomains %}success{% else %}warning{% endif %}">
+                                                    {% if hsts_policy.include_subdomains %}Yes{% else %}No{% endif %}
+                                                </span>
+                                            </div>
+                                            <div class="mb-2">
+                                                <strong>Preload:</strong> 
+                                                <span class="badge bg-{% if hsts_policy.preload %}success{% else %}warning{% endif %}">
+                                                    {% if hsts_policy.preload %}Yes{% else %}No{% endif %}
+                                                </span>
+                                            </div>
+                                            {% if hsts_policy.score_description %}
+                                                <div class="mb-2">
+                                                    <strong>Description:</strong> {{ hsts_policy.score_description }}
+                                                </div>
+                                            {% endif %}
+                                            {% if hsts_policy.recommendation and hsts_policy.recommendation != 'None' %}
+                                                <div>
+                                                    <strong>Recommendation:</strong> {{ hsts_policy.recommendation }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                {% endif %}
+
+                                <!-- Referrer Policy -->
+                                {% if policy_data.get('referrer_policy') %}
+                                    {% set referrer_policy = policy_data.referrer_policy %}
+                                    <div class="mb-4">
+                                        <h6 class="mb-3">
+                                            <i class="fas fa-user-secret me-2"></i>
+                                            Referrer Policy
+                                        </h6>
+                                        <div class="alert alert-{% if referrer_policy.present %}success{% else %}warning{% endif %}" role="alert">
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <strong>Status:</strong>
+                                                <span class="badge bg-{% if referrer_policy.present %}success{% else %}warning{% endif %}">
+                                                    {% if referrer_policy.present %}Present{% else %}Not Present{% endif %}
+                                                </span>
+                                            </div>
+                                            {% if referrer_policy.policy %}
+                                                <div class="mb-2">
+                                                    <strong>Policy:</strong>
+                                                    <code class="d-block mt-1 p-2 bg-light text-dark">{{ referrer_policy.policy }}</code>
+                                                </div>
+                                            {% endif %}
+                                            {% if referrer_policy.score_description %}
+                                                <div class="mb-2">
+                                                    <strong>Description:</strong> {{ referrer_policy.score_description }}
+                                                </div>
+                                            {% endif %}
+                                            {% if referrer_policy.recommendation and referrer_policy.recommendation != 'None' %}
+                                                <div>
+                                                    <strong>Recommendation:</strong> {{ referrer_policy.recommendation }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                {% endif %}
+
+                                <!-- CORS Policy -->
+                                {% if policy_data.get('cors_policy') %}
+                                    {% set cors_policy = policy_data.cors_policy %}
+                                    <div class="mb-4">
+                                        <h6 class="mb-3">
+                                            <i class="fas fa-globe me-2"></i>
+                                            Cross-Origin Resource Sharing (CORS)
+                                        </h6>
+                                        <div class="alert alert-{% if cors_policy.present %}success{% else %}info{% endif %}" role="alert">
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <strong>Status:</strong>
+                                                <span class="badge bg-{% if cors_policy.present %}success{% else %}info{% endif %}">
+                                                    {% if cors_policy.present %}Configured{% else %}Default{% endif %}
+                                                </span>
+                                            </div>
+                                            {% if cors_policy.acao %}
+                                                <div class="mb-2">
+                                                    <strong>Access-Control-Allow-Origin:</strong>
+                                                    <code class="d-block mt-1 p-2 bg-light text-dark">{{ cors_policy.acao }}</code>
+                                                </div>
+                                            {% endif %}
+                                            {% if cors_policy.acah %}
+                                                <div class="mb-2">
+                                                    <strong>Access-Control-Allow-Headers:</strong>
+                                                    <code class="d-block mt-1 p-2 bg-light text-dark">{{ cors_policy.acah }}</code>
+                                                </div>
+                                            {% endif %}
+                                            {% if cors_policy.score_description %}
+                                                <div class="mb-2">
+                                                    <strong>Description:</strong> {{ cors_policy.score_description }}
+                                                </div>
+                                            {% endif %}
+                                            {% if cors_policy.recommendation and cors_policy.recommendation != 'None' %}
+                                                <div>
+                                                    <strong>Recommendation:</strong> {{ cors_policy.recommendation }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                {% endif %}
+
+                                <!-- Policy Headers Summary -->
+                                {% if policy_data.get('response_headers') %}
+                                    {% set policy_headers = policy_data.response_headers %}
+                                    <div class="mb-4">
+                                        <h6 class="mb-3">
+                                            <i class="fas fa-list me-2"></i>
+                                            Security Policy Headers Summary
+                                        </h6>
+                                        <div class="table-responsive">
+                                            <table class="table table-bordered table-sm">
+                                                <thead>
+                                                    <tr>
+                                                        <th style="width: 30%;">Policy Header</th>
+                                                        <th style="width: 15%;">Status</th>
+                                                        <th>Value</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for header_name, header_value in policy_headers.items() %}
+                                                    <tr>
+                                                        <td><strong>{{ header_name }}</strong></td>
+                                                        <td>
+                                                            {% if header_value %}
+                                                                <span class="badge bg-success">Present</span>
+                                                            {% else %}
+                                                                <span class="badge bg-warning">Missing</span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td>
+                                                            {% if header_value %}
+                                                                <code style="word-break: break-all;">{{ header_value }}</code>
+                                                            {% else %}
+                                                                <span class="text-muted">Not set</span>
+                                                            {% endif %}
+                                                        </td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                {% endif %}
+
+                            {% else %}
+                                <div class="alert alert-info" role="alert">
+                                    <p class="mb-0">No policy data available for this scan.</p>
+                                </div>
+                            {% endif %}
+                        {% else %}
+                            <div class="alert alert-info" role="alert">
+                                <p class="mb-0">No policy data available for this scan.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Raw Server Headers Section -->
         {% if latest_scan.status == 'completed' %}
         <div class="row mb-4">
@@ -281,10 +641,10 @@
                         </h5>
                     </div>
                     <div class="card-body">
-                        {% if latest_scan.csp_issues %}
-                            {% set test_results = latest_scan.csp_issues|from_json %}
-                            {% if test_results and test_results[0] and test_results[0].get('scan_info') and test_results[0].scan_info.get('response_headers') %}
-                                {% set headers = test_results[0].scan_info.response_headers %}
+                        {% if latest_scan.cookie_issues %}
+                            {% set scan_info = latest_scan.cookie_issues|from_json %}
+                            {% if scan_info and scan_info.get('response_headers') %}
+                                {% set headers = scan_info.response_headers %}
                                 <div class="table-responsive">
                                     <table class="table table-bordered table-sm">
                                         <thead>
@@ -340,6 +700,7 @@
                                         <th>Status</th>
                                         <th>Issues</th>
                                         <th>Notes</th>
+                                        <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -393,6 +754,17 @@
                                                 <small class="text-danger">{{ scan.error_message[:50] }}{% if scan.error_message|length > 50 %}...{% endif %}</small>
                                             {% else %}
                                                 <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if not loop.first %}
+                                                <a href="{{ url_for('delete_scan', scan_id=scan.id) }}" 
+                                                   class="btn btn-outline-danger btn-sm"
+                                                   onclick="return confirm('Are you sure you want to delete this scan result? This action cannot be undone.')">
+                                                    <i class="fas fa-trash me-1"></i>Delete
+                                                </a>
+                                            {% else %}
+                                                <span class="text-muted">Latest</span>
                                             {% endif %}
                                         </td>
                                     </tr>

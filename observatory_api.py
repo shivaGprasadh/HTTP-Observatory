@@ -87,15 +87,42 @@ class ObservatoryAPI:
             # Parse all test details
             test_results = self._extract_all_test_details(tests)
             
+            # Extract response headers and cookies information
+            response_headers = scan_info.get('response_headers', {})
+            
+            # Extract cookies information from the tests data
+            cookies_data = {}
+            if 'cookies' in tests:
+                cookies_test = tests['cookies']
+                # Extract detailed cookie information if available
+                if 'cookies' in cookies_test:
+                    cookies_data = cookies_test['cookies']
+            
+            # Extract policy information from various tests
+            policy_data = self._extract_policy_data(tests, response_headers)
+            
+            # Combine scan info with additional data
+            enhanced_scan_info = {
+                'response_headers': response_headers,
+                'cookies': cookies_data,
+                'policy': policy_data,
+                'scan_id': scan_info.get('scan_id'),
+                'start_time': scan_info.get('start_time'),
+                'end_time': scan_info.get('end_time'),
+                'state': scan_info.get('state')
+            }
+            
             logging.info(f"Parsed data for {hostname} - Score: {score}, Grade: {grade}")
             logging.info(f"Total tests found: {len(test_results)}")
+            logging.info(f"Response headers found: {len(response_headers)}")
+            logging.info(f"Cookies found: {len(cookies_data)}")
 
             return {
                 'status': 'success',
                 'score': score,
                 'grade': grade,
                 'test_results': test_results,
-                'scan_info': scan_info
+                'scan_info': enhanced_scan_info
             }
 
         except Exception as e:
@@ -174,6 +201,82 @@ class ObservatoryAPI:
                 })
         
         return test_results
+
+    def _extract_policy_data(self, tests, response_headers):
+        """Extract policy information from test results and headers"""
+        policy_data = {}
+        
+        # Extract CSP policy
+        if 'content-security-policy' in tests:
+            csp_test = tests['content-security-policy']
+            policy_data['content_security_policy'] = {
+                'present': csp_test.get('pass', False),
+                'policy': csp_test.get('policy', ''),
+                'score_description': csp_test.get('score_description', ''),
+                'recommendation': csp_test.get('recommendation', '')
+            }
+        
+        # Extract HSTS policy
+        if 'strict-transport-security' in tests:
+            hsts_test = tests['strict-transport-security']
+            policy_data['strict_transport_security'] = {
+                'present': hsts_test.get('pass', False),
+                'policy': hsts_test.get('policy', ''),
+                'max_age': hsts_test.get('max-age', ''),
+                'include_subdomains': hsts_test.get('includeSubDomains', False),
+                'preload': hsts_test.get('preload', False),
+                'score_description': hsts_test.get('score_description', ''),
+                'recommendation': hsts_test.get('recommendation', '')
+            }
+        
+        # Extract Referrer Policy
+        if 'referrer-policy' in tests:
+            referrer_test = tests['referrer-policy']
+            policy_data['referrer_policy'] = {
+                'present': referrer_test.get('pass', False),
+                'policy': referrer_test.get('policy', ''),
+                'score_description': referrer_test.get('score_description', ''),
+                'recommendation': referrer_test.get('recommendation', '')
+            }
+        
+        # Extract CORS policy
+        if 'cross-origin-resource-sharing' in tests:
+            cors_test = tests['cross-origin-resource-sharing']
+            policy_data['cors_policy'] = {
+                'present': cors_test.get('pass', False),
+                'policy': cors_test.get('policy', ''),
+                'acao': cors_test.get('acao', ''),
+                'acah': cors_test.get('acah', ''),
+                'score_description': cors_test.get('score_description', ''),
+                'recommendation': cors_test.get('recommendation', '')
+            }
+        
+        # Extract Cross-Origin Resource Policy
+        if 'cross-origin-resource-policy' in tests:
+            corp_test = tests['cross-origin-resource-policy']
+            policy_data['cross_origin_resource_policy'] = {
+                'present': corp_test.get('pass', False),
+                'policy': corp_test.get('policy', ''),
+                'score_description': corp_test.get('score_description', ''),
+                'recommendation': corp_test.get('recommendation', '')
+            }
+        
+        # Extract policies from response headers
+        policy_headers = {
+            'Content-Security-Policy': response_headers.get('content-security-policy', ''),
+            'Strict-Transport-Security': response_headers.get('strict-transport-security', ''),
+            'Referrer-Policy': response_headers.get('referrer-policy', ''),
+            'Cross-Origin-Resource-Policy': response_headers.get('cross-origin-resource-policy', ''),
+            'Cross-Origin-Embedder-Policy': response_headers.get('cross-origin-embedder-policy', ''),
+            'Cross-Origin-Opener-Policy': response_headers.get('cross-origin-opener-policy', ''),
+            'X-Frame-Options': response_headers.get('x-frame-options', ''),
+            'X-Content-Type-Options': response_headers.get('x-content-type-options', ''),
+            'X-XSS-Protection': response_headers.get('x-xss-protection', '')
+        }
+        
+        policy_data['response_headers'] = policy_headers
+        
+        return policy_data
 
     def get_scan_history(self, hostname):
         """Get scan history for a domain from API"""

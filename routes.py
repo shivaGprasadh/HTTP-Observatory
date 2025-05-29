@@ -48,6 +48,103 @@ def add_domain():
     flash(f'Domain {hostname} added successfully', 'success')
     return redirect(url_for('index'))
 
+@app.route('/bulk_upload_domains', methods=['POST'])
+def bulk_upload_domains():
+    """Bulk upload domains from a file"""
+    if 'domain_file' not in request.files:
+        flash('No file selected', 'error')
+        return redirect(url_for('index'))
+    
+    file = request.files['domain_file']
+    
+    if file.filename == '':
+        flash('No file selected', 'error')
+        return redirect(url_for('index'))
+    
+    if not file.filename.lower().endswith(('.txt', '.csv')):
+        flash('Please upload a .txt or .csv file', 'error')
+        return redirect(url_for('index'))
+    
+    try:
+        # Read file content
+        content = file.read().decode('utf-8')
+        lines = content.strip().split('\n')
+        
+        added_count = 0
+        skipped_count = 0
+        error_count = 0
+        
+        for line in lines:
+            # Handle CSV files - try to extract domain from different columns
+            if file.filename.lower().endswith('.csv'):
+                # Split by comma and try to find a domain-like string
+                parts = [part.strip().strip('"') for part in line.split(',')]
+                hostname = None
+                for part in parts:
+                    # Look for domain-like patterns
+                    if part and '.' in part and not part.startswith('http') and len(part) > 3:
+                        hostname = part
+                        break
+                if not hostname and parts:
+                    hostname = parts[0].strip().strip('"')
+            else:
+                # Text file - one domain per line
+                hostname = line.strip()
+            
+            if not hostname or hostname.lower() in ['domain', 'hostname', 'url', 'website']:
+                continue  # Skip header rows or empty lines
+            
+            # Clean up the hostname
+            hostname = hostname.strip().lower()
+            
+            # Remove protocol if present
+            if hostname.startswith(('http://', 'https://')):
+                hostname = hostname.split('://', 1)[1]
+            
+            # Remove trailing slash and paths
+            hostname = hostname.split('/')[0]
+            
+            # Basic domain validation
+            if not hostname or '.' not in hostname or len(hostname) < 4:
+                error_count += 1
+                continue
+            
+            # Check if domain already exists
+            existing_domain = Domain.query.filter_by(hostname=hostname).first()
+            if existing_domain:
+                if existing_domain.is_active:
+                    skipped_count += 1
+                else:
+                    existing_domain.is_active = True
+                    added_count += 1
+            else:
+                # Add new domain
+                new_domain = Domain(hostname=hostname)
+                db.session.add(new_domain)
+                added_count += 1
+        
+        db.session.commit()
+        
+        # Provide feedback
+        message_parts = []
+        if added_count > 0:
+            message_parts.append(f"{added_count} domains added")
+        if skipped_count > 0:
+            message_parts.append(f"{skipped_count} already existed")
+        if error_count > 0:
+            message_parts.append(f"{error_count} invalid entries skipped")
+        
+        if added_count > 0:
+            flash(f"Bulk upload completed: {', '.join(message_parts)}", 'success')
+        else:
+            flash(f"No new domains added: {', '.join(message_parts)}", 'warning')
+            
+    except Exception as e:
+        logging.error(f"Error processing bulk upload: {str(e)}")
+        flash(f'Error processing file: {str(e)}', 'error')
+    
+    return redirect(url_for('index'))
+
 @app.route('/remove_domain/<int:domain_id>')
 def remove_domain(domain_id):
     """Remove a domain from the list"""
@@ -242,6 +339,19 @@ def export_csv():
     response.headers["Content-type"] = "text/csv"
     
     return response
+
+@app.route('/delete_scan/<int:scan_id>')
+def delete_scan(scan_id):
+    """Delete a specific scan result"""
+    scan = ScanResult.query.get_or_404(scan_id)
+    domain_id = scan.domain_id
+    domain_name = scan.domain.hostname
+    
+    db.session.delete(scan)
+    db.session.commit()
+    
+    flash(f'Scan result deleted for {domain_name}', 'success')
+    return redirect(url_for('domain_results', domain_id=domain_id))
 
 @app.errorhandler(404)
 def not_found(error):

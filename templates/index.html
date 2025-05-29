@@ -28,8 +28,9 @@
                     </h5>
                 </div>
                 <div class="card-body">
+                    <!-- Single Domain Form -->
                     <form method="POST" action="{{ url_for('add_domain') }}">
-                        <div class="input-group">
+                        <div class="input-group mb-3">
                             <input 
                                 type="text" 
                                 class="form-control" 
@@ -48,6 +49,35 @@
                             Enter domain without protocol (http:// or https://)
                         </div>
                     </form>
+
+                    <hr class="my-4">
+
+                    <!-- Bulk Upload Form -->
+                    <h6 class="mb-3">
+                        <i class="fas fa-upload me-2"></i>
+                        Bulk Upload Domains
+                    </h6>
+                    <form method="POST" action="{{ url_for('bulk_upload_domains') }}" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <input type="file" class="form-control" name="domain_file" accept=".txt,.csv" required>
+                            <div class="form-text">
+                                Upload a text file (.txt) or CSV file (.csv) with one domain per line
+                            </div>
+                        </div>
+                        <button class="btn btn-success" type="submit">
+                            <i class="fas fa-upload me-1"></i>
+                            Upload Domains
+                        </button>
+                    </form>
+
+                    <!-- Bulk Upload Instructions -->
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <strong>File format examples:</strong><br>
+                            • Text file: One domain per line (example.com, test.org, etc.)<br>
+                            • CSV file: Domain column will be automatically detected
+                        </small>
+                    </div>
                 </div>
             </div>
         </div>

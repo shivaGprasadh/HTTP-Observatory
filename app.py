@@ -46,10 +46,10 @@ def from_json_filter(value):
     except (json.JSONDecodeError, TypeError):
         return []
 
-# Import models and routes after app setup
-import models
-import routes
-
 with app.app_context():
+    # Import models and routes after app setup to avoid circular imports
+    import models
+    import routes
+    
     # Create all tables
     db.create_all()
