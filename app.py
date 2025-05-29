@@ -46,10 +46,36 @@ def from_json_filter(value):
     except (json.JSONDecodeError, TypeError):
         return []
 
+@app.template_filter('parse_csp')
+def parse_csp_filter(value):
+    """Parse CSP policy data for human readable display"""
+    from utils import parse_csp_policy_data, parse_csp_policy_raw_data
+    if not value:
+        return []
+    try:
+        data = json.loads(value) if isinstance(value, str) else value
+        if isinstance(data, dict):
+            # Check if it's the raw format from the attached file
+            if 'antiClickjacking' in data or 'unsafeInline' in data:
+                return parse_csp_policy_raw_data(data)
+            # Check if it's nested policy data
+            elif 'policy' in data:
+                csp_policy = data.get('policy', {}).get('content_security_policy', {}).get('policy', {})
+                return parse_csp_policy_data(csp_policy)
+        return []
+    except (json.JSONDecodeError, TypeError, AttributeError):
+        return []
+
+@app.template_filter('status_badge_class')
+def status_badge_class_filter(pass_value):
+    """Get Bootstrap badge class for CSP test status"""
+    from utils import get_status_badge_class
+    return get_status_badge_class(pass_value)
+
+# Import models and routes after app setup to avoid circular imports
+import models
+import routes
+
 with app.app_context():
-    # Import models and routes after app setup to avoid circular imports
-    import models
-    import routes
-    
     # Create all tables
     db.create_all()

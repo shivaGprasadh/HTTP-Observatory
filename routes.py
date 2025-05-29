@@ -7,6 +7,7 @@ from flask import render_template, request, redirect, url_for, flash, make_respo
 from app import app, db, scan_results, scan_history
 from models import Domain, ScanResult
 from observatory_api import ObservatoryAPI
+from utils import parse_csp_policy_data, get_status_badge_class
 
 observatory = ObservatoryAPI()
 

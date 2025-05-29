@@ -1,56 +1,106 @@
 /* Custom styles for Observatory Scanner */
 
 :root {
-    --primary-hue: 210;
-    --success-hue: 142;
-    --warning-hue: 45;
-    --danger-hue: 354;
-    --info-hue: 188;
-    
-    /* Security status colors */
-    --security-excellent: 142 76% 36%; /* #22c55e */
-    --security-good: 45 93% 47%; /* #eab308 */
-    --security-poor: 354 70% 54%; /* #ef4444 */
-    --security-critical: 0 84% 60%; /* #dc2626 */
+    --primary_hue: 210;
+    --success_hue: 142;
+    --warning_hue: 45;
+    --danger_hue: 354;
+    --info_hue: 188;
+
+    /* Security status colors with better contrast */
+    --security_excellent: 142 76% 25%; /* Darker green for better contrast */
+    --security_good: 45 93% 35%; /* Darker yellow for better contrast */
+    --security_poor: 354 70% 45%; /* Slightly darker red */
+    --security_critical: 0 84% 40%; /* Darker critical red */
+
+    /* Text colors for better visibility */
+    --text_on_light: 0 0% 15%; /* Very dark gray for light backgrounds */
+    --text_on_dark: 0 0% 95%; /* Very light gray for dark backgrounds */
+    --text_muted_light: 0 0% 40%; /* Muted text for light backgrounds */
+    --text_muted_dark: 0 0% 70%; /* Muted text for dark backgrounds */
 }
 
-/* Security grade badges */
+/* Security grade badges with better contrast */
 .badge.grade-a-plus,
 .badge.grade-a {
-    background-color: hsl(var(--security-excellent)) !important;
+    background-color: hsl(var(--security_excellent)) !important;
+    color: white !important;
+    font-weight: 600;
 }
 
 .badge.grade-b-plus,
 .badge.grade-b {
-    background-color: hsl(var(--info-hue) 76% 50%) !important;
+    background-color: hsl(var(--info_hue) 76% 40%) !important;
+    color: white !important;
+    font-weight: 600;
 }
 
 .badge.grade-c-plus,
 .badge.grade-c {
-    background-color: hsl(var(--security-good)) !important;
+    background-color: hsl(var(--security_good)) !important;
+    color: white !important;
+    font-weight: 600;
 }
 
 .badge.grade-d,
 .badge.grade-e,
 .badge.grade-f {
-    background-color: hsl(var(--security-poor)) !important;
+    background-color: hsl(var(--security_poor)) !important;
+    color: white !important;
+    font-weight: 600;
+}
+
+/* Enhanced badge styles for better visibility */
+.badge {
+    font-weight: 600;
+    letter-spacing: 0.025em;
+}
+
+.badge.bg-success {
+    background-color: hsl(142 76% 35%) !important;
+    color: white !important;
+}
+
+.badge.bg-danger {
+    background-color: hsl(354 70% 45%) !important;
+    color: white !important;
+}
+
+.badge.bg-warning {
+    background-color: hsl(45 93% 35%) !important;
+    color: white !important;
+}
+
+.badge.bg-info {
+    background-color: hsl(188 76% 40%) !important;
+    color: white !important;
+}
+
+.badge.bg-secondary {
+    background-color: hsl(210 10% 40%) !important;
+    color: white !important;
+}
+
+.badge.bg-primary {
+    background-color: hsl(210 100% 45%) !important;
+    color: white !important;
 }
 
 /* Score indicators */
 .score-excellent {
-    color: hsl(var(--security-excellent));
+    color: hsl(var(--security_excellent));
 }
 
 .score-good {
-    color: hsl(var(--security-good));
+    color: hsl(var(--security_good));
 }
 
 .score-poor {
-    color: hsl(var(--security-poor));
+    color: hsl(var(--security_poor));
 }
 
 .score-critical {
-    color: hsl(var(--security-critical));
+    color: hsl(var(--security_critical));
 }
 
 /* Loading states */
@@ -88,19 +138,19 @@
 }
 
 .security-icon.critical {
-    color: hsl(var(--security-critical));
+    color: hsl(var(--security_critical));
 }
 
 .security-icon.poor {
-    color: hsl(var(--security-poor));
+    color: hsl(var(--security_poor));
 }
 
 .security-icon.good {
-    color: hsl(var(--security-good));
+    color: hsl(var(--security_good));
 }
 
 .security-icon.excellent {
-    color: hsl(var(--security-excellent));
+    color: hsl(var(--security_excellent));
 }
 
 /* Card hover effects */
@@ -117,13 +167,13 @@
 
 /* Custom button styles */
 .btn-scan {
-    background: linear-gradient(45deg, hsl(var(--primary-hue) 100% 60%), hsl(var(--primary-hue) 100% 70%));
+    background: linear-gradient(45deg, hsl(var(--primary_hue) 100% 60%), hsl(var(--primary_hue) 100% 70%));
     border: none;
     color: white;
 }
 
 .btn-scan:hover {
-    background: linear-gradient(45deg, hsl(var(--primary-hue) 100% 50%), hsl(var(--primary-hue) 100% 60%));
+    background: linear-gradient(45deg, hsl(var(--primary_hue) 100% 50%), hsl(var(--primary_hue) 100% 60%));
     transform: translateY(-1px);
 }
 
@@ -139,30 +189,172 @@
     .display-4 {
         font-size: 2rem;
     }
-    
+
     .btn-group-sm .btn {
         padding: 0.25rem 0.5rem;
         font-size: 0.75rem;
     }
-    
+
     .table-responsive {
         font-size: 0.875rem;
     }
+}
+
+/* Improved text visibility in tables */
+.table > :not(caption) > * > * {
+    color: hsl(var(--text_on_light));
+    border-bottom-color: rgba(0, 0, 0, 0.125);
+}
+
+.table-danger {
+    background-color: rgba(220, 53, 69, 0.1) !important;
+    color: hsl(354 70% 25%) !important;
+}
+
+.table-danger td,
+.table-danger th {
+    color: hsl(354 70% 25%) !important;
+}
+
+.table-success {
+    background-color: rgba(25, 135, 84, 0.1) !important;
+    color: hsl(142 76% 25%) !important;
+}
+
+.table-success td,
+.table-success th {
+    color: hsl(142 76% 25%) !important;
+}
+
+.table-warning {
+    background-color: rgba(255, 193, 7, 0.1) !important;
+    color: hsl(45 93% 25%) !important;
+}
+
+.table-warning td,
+.table-warning th {
+    color: hsl(45 93% 25%) !important;
+}
+
+.table-light {
+    background-color: rgba(248, 249, 250, 0.5) !important;
+    color: hsl(var(--text_on_light)) !important;
+}
+
+.table-light td,
+.table-light th {
+    color: hsl(var(--text_on_light)) !important;
+}
+
+.table-primary {
+    background-color: rgba(13, 110, 253, 0.1) !important;
+    color: hsl(210 100% 25%) !important;
+}
+
+.table-primary td,
+.table-primary th {
+    color: hsl(210 100% 25%) !important;
+}
+
+/* Improved alert text visibility */
+.alert {
+    color: hsl(var(--text_on_light)) !important;
+    border-width: 1px;
+    border-style: solid;
+}
+
+.alert-danger {
+    background-color: rgba(220, 53, 69, 0.1) !important;
+    border-color: rgba(220, 53, 69, 0.3) !important;
+    color: hsl(354 70% 25%) !important;
+}
+
+.alert-danger p,
+.alert-danger div,
+.alert-danger span:not(.badge) {
+    color: hsl(354 70% 25%) !important;
+}
+
+.alert-success {
+    background-color: rgba(25, 135, 84, 0.1) !important;
+    border-color: rgba(25, 135, 84, 0.3) !important;
+    color: hsl(142 76% 25%) !important;
+}
+
+.alert-success p,
+.alert-success div,
+.alert-success span:not(.badge) {
+    color: hsl(142 76% 25%) !important;
+}
+
+.alert-warning {
+    background-color: rgba(255, 193, 7, 0.1) !important;
+    border-color: rgba(255, 193, 7, 0.3) !important;
+    color: hsl(45 93% 25%) !important;
+}
+
+.alert-warning p,
+.alert-warning div,
+.alert-warning span:not(.badge) {
+    color: hsl(45 93% 25%) !important;
+}
+
+.alert-info {
+    background-color: rgba(13, 202, 240, 0.1) !important;
+    border-color: rgba(13, 202, 240, 0.3) !important;
+    color: hsl(188 76% 30%) !important;
+}
+
+.alert-info p,
+.alert-info div,
+.alert-info span:not(.badge) {
+    color: hsl(188 76% 30%) !important;
+}
+
+/* Improved code block visibility */
+code {
+    background-color: rgba(0, 0, 0, 0.05) !important;
+    color: hsl(354 70% 45%) !important;
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.25rem;
+    font-weight: 500;
+}
+
+.bg-light code {
+    background-color: rgba(0, 0, 0, 0.1) !important;
+    color: hsl(210 10% 20%) !important;
+}
+
+/* Text muted improvements */
+.text-muted {
+    color: hsl(var(--text_muted_light)) !important;
 }
 
 /* Dark theme improvements */
 [data-bs-theme="dark"] .card {
     background-color: rgba(255, 255, 255, 0.05);
     border-color: rgba(255, 255, 255, 0.125);
+    color: hsl(var(--text_on_dark));
 }
 
 [data-bs-theme="dark"] .table > :not(caption) > * > * {
     border-bottom-color: rgba(255, 255, 255, 0.125);
+    color: hsl(var(--text_on_dark));
 }
 
 [data-bs-theme="dark"] .alert {
     background-color: rgba(var(--bs-alert-bg-rgb), 0.1);
     border-color: rgba(var(--bs-alert-border-color-rgb), 0.2);
+    color: hsl(var(--text_on_dark)) !important;
+}
+
+[data-bs-theme="dark"] .text-muted {
+    color: hsl(var(--text_muted_dark)) !important;
+}
+
+[data-bs-theme="dark"] code {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    color: hsl(354 70% 65%) !important;
 }
 
 /* Breadcrumb styling */
@@ -179,7 +371,7 @@ footer {
 
 /* Form improvements */
 .form-control:focus {
-    border-color: hsl(var(--primary-hue) 100% 60%);
+    border-color: hsl(var(--primary_hue) 100% 60%);
     box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
 }
 
@@ -208,17 +400,155 @@ footer {
     background: rgba(var(--bs-secondary-rgb), 0.7);
 }
 
+/* Additional text visibility improvements */
+.card-header {
+    color: white !important;
+    font-weight: 600;
+    background-color: hsl(210 100% 45%) !important;
+}
+
+/* Security Policy Analysis subheadings with white text */
+h6:contains("Content Security Policy"),
+h6:contains("Strict Transport Security"), 
+h6:contains("Referrer Policy"),
+h6:contains("Cross-Origin Resource Sharing"),
+h6:contains("Security Policy Headers Summary") {
+    color: white !important;
+    background-color: hsl(210 100% 45%) !important;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    margin-bottom: 1rem !important;
+}
+
+/* Target h6 elements within Security Policy Analysis section */
+.card:has(.card-title:contains("Security Policy Analysis")) h6 {
+    color: white !important;
+    background-color: hsl(210 100% 45%) !important;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    margin-bottom: 1rem !important;
+}
+
+/* Fallback for all h6 elements in card bodies */
+.card-body h6 {
+    color: white !important;
+    background-color: hsl(210 100% 45%) !important;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    margin-bottom: 1rem !important;
+}
+
+/* Fallback for security policy sections - target all non-colored card headers */
+.card-header:not(.bg-primary):not(.bg-danger):not(.bg-success):not(.bg-warning):not(.bg-info):not(.bg-secondary):not(.bg-dark) {
+    background-color: hsl(210 15% 85%) !important;
+    color: hsl(210 20% 25%) !important;
+}
+
+.card-header.bg-primary,
+.card-header.bg-danger,
+.card-header.bg-success,
+.card-header.bg-warning,
+.card-header.bg-info,
+.card-header.bg-secondary,
+.card-header.bg-dark {
+    color: white !important;
+}
+
+/* Ensure alert headings override card header styles */
+.alert .alert-heading {
+    color: inherit !important;
+}
+
+.card-title {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.card-body {
+    color: hsl(var(--text_on_light));
+}
+
+/* Button text improvements */
+.btn {
+    font-weight: 500;
+    letter-spacing: 0.025em;
+}
+
+.btn-primary {
+    background-color: hsl(210 100% 45%);
+    border-color: hsl(210 100% 45%);
+    color: white !important;
+}
+
+.btn-secondary {
+    background-color: hsl(210 10% 40%);
+    border-color: hsl(210 10% 40%);
+    color: white !important;
+}
+
+.btn-outline-danger {
+    color: hsl(354 70% 45%) !important;
+    border-color: hsl(354 70% 45%) !important;
+}
+
+.btn-outline-danger:hover {
+    background-color: hsl(354 70% 45%) !important;
+    color: white !important;
+}
+
+/* Breadcrumb improvements */
+.breadcrumb-item a {
+    color: hsl(210 100% 45%) !important;
+    text-decoration: none;
+}
+
+.breadcrumb-item a:hover {
+    color: hsl(210 100% 35%) !important;
+    text-decoration: underline;
+}
+
+.breadcrumb-item.active {
+    color: hsl(var(--text_muted_light)) !important;
+}
+
+/* Table header improvements */
+.table thead th {
+    background-color: rgba(13, 110, 253, 0.1) !important;
+    color: hsl(210 100% 30%) !important;
+    font-weight: 600;
+    border-bottom: 2px solid rgba(13, 110, 253, 0.2) !important;
+}
+
+/* Small text improvements */
+small {
+    color: hsl(var(--text_muted_light)) !important;
+}
+
+[data-bs-theme="dark"] small {
+    color: hsl(var(--text_muted_dark)) !important;
+}
+
 /* Print styles */
 @media print {
     .no-print {
         display: none !important;
     }
-    
+
     .card {
         break-inside: avoid;
     }
-    
+
     .table {
         font-size: 0.75rem;
+    }
+
+    /* Ensure good contrast for printing */
+    * {
+        color: black !important;
+        background: white !important;
+    }
+
+    .badge {
+        border: 1px solid black !important;
     }
 }
