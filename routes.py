@@ -64,26 +64,37 @@ def scan_domain(domain_id):
     domain = Domain.query.get_or_404(domain_id)
     
     try:
+        logging.info(f"Starting scan for domain: {domain.hostname}")
+        
         # Perform the scan
         scan_result = observatory.scan_domain(domain.hostname)
         
+        logging.info(f"Scan result for {domain.hostname}: {scan_result}")
+        
         if scan_result['status'] == 'success':
             # Store scan results
+            score = scan_result.get('score')
+            grade = scan_result.get('grade')
+            
+            logging.info(f"Storing scan for {domain.hostname}: Score={score}, Grade={grade}")
+            
             new_scan = ScanResult(
                 domain_id=domain.id,
-                overall_score=scan_result.get('score'),
-                grade=scan_result.get('grade'),
+                overall_score=score,
+                grade=grade,
                 status='completed',
-                csp_issues=json.dumps(scan_result.get('csp_issues', [])),
-                cookie_issues=json.dumps(scan_result.get('cookie_issues', [])),
-                header_issues=json.dumps(scan_result.get('header_issues', []))
+                csp_issues=json.dumps(scan_result.get('test_results', [])),
+                cookie_issues=json.dumps(scan_result.get('scan_info', {})),
+                header_issues=json.dumps(scan_result.get('test_results', []))
             )
             
             domain.last_scan_date = datetime.utcnow()
             db.session.add(new_scan)
             db.session.commit()
             
-            flash(f'Scan completed for {domain.hostname} (Score: {scan_result.get("score", "N/A")})', 'success')
+            test_results = scan_result.get('test_results', [])
+            failed_tests = [test for test in test_results if test.get('status') == 'Failed']
+            flash(f'Scan completed for {domain.hostname} - Score: {scan_result.get("score", "N/A")}, Grade: {scan_result.get("grade", "N/A")}, Failed Tests: {len(failed_tests)}', 'success')
         else:
             # Store failed scan
             new_scan = ScanResult(
@@ -124,9 +135,9 @@ def scan_all():
                     overall_score=scan_result.get('score'),
                     grade=scan_result.get('grade'),
                     status='completed',
-                    csp_issues=json.dumps(scan_result.get('csp_issues', [])),
-                    cookie_issues=json.dumps(scan_result.get('cookie_issues', [])),
-                    header_issues=json.dumps(scan_result.get('header_issues', []))
+                    csp_issues=json.dumps(scan_result.get('test_results', [])),
+                    cookie_issues=json.dumps(scan_result.get('scan_info', {})),
+                    header_issues=json.dumps(scan_result.get('test_results', []))
                 )
                 domain.last_scan_date = datetime.utcnow()
                 success_count += 1
@@ -158,18 +169,23 @@ def scan_all():
 @app.route('/dashboard')
 def dashboard():
     """Dashboard showing all scan results"""
-    # Get latest scan results for each domain
-    latest_scans = db.session.query(ScanResult).join(Domain).filter(
-        Domain.is_active == True
-    ).order_by(ScanResult.scan_date.desc()).all()
+    # Get latest scan results for each domain using a subquery
+    from sqlalchemy import func
     
-    # Group by domain to get latest scan for each
-    domain_scans = {}
-    for scan in latest_scans:
-        if scan.domain_id not in domain_scans:
-            domain_scans[scan.domain_id] = scan
+    # Subquery to get the latest scan date for each domain
+    latest_scan_dates = db.session.query(
+        ScanResult.domain_id,
+        func.max(ScanResult.scan_date).label('latest_date')
+    ).group_by(ScanResult.domain_id).subquery()
     
-    return render_template('dashboard.html', scans=list(domain_scans.values()))
+    # Join with the subquery to get the complete latest scan records
+    latest_scans = db.session.query(ScanResult).join(Domain).join(
+        latest_scan_dates,
+        (ScanResult.domain_id == latest_scan_dates.c.domain_id) &
+        (ScanResult.scan_date == latest_scan_dates.c.latest_date)
+    ).filter(Domain.is_active == True).all()
+    
+    return render_template('dashboard.html', scans=latest_scans)
 
 @app.route('/domain_results/<int:domain_id>')
 def domain_results(domain_id):

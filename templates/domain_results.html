@@ -14,12 +14,12 @@
                     <li class="breadcrumb-item active">{{ domain.hostname }}</li>
                 </ol>
             </nav>
-            
+
             <h1 class="display-5 mb-3">
                 <i class="fas fa-shield-alt me-3"></i>
                 Security Results for {{ domain.hostname }}
             </h1>
-            
+
             <div class="d-flex gap-2 mb-3">
                 <a href="{{ url_for('scan_domain', domain_id=domain.id) }}" class="btn btn-primary">
                     <i class="fas fa-sync-alt me-1"></i>
@@ -35,7 +35,7 @@
 
     {% if scans %}
         {% set latest_scan = scans[0] %}
-        
+
         <!-- Latest Scan Overview -->
         <div class="row mb-4">
             <div class="col-12">
@@ -68,13 +68,13 @@
                                     <p class="text-muted mb-0">Scan Date</p>
                                 </div>
                                 <div class="col-md-3 text-center">
-                                    {% set total_issues = ((latest_scan.csp_issues|from_json|length if latest_scan.csp_issues else 0) + 
-                                                          (latest_scan.cookie_issues|from_json|length if latest_scan.cookie_issues else 0) + 
-                                                          (latest_scan.header_issues|from_json|length if latest_scan.header_issues else 0)) %}
+                                    {% set test_results = latest_scan.csp_issues|from_json if latest_scan.csp_issues else [] %}
+                                    {% set failed_tests = test_results|selectattr('status', 'equalto', 'Failed')|list if test_results else [] %}
+                                    {% set total_issues = failed_tests|length %}
                                     <h3 class="text-{% if total_issues == 0 %}success{% elif total_issues <= 3 %}warning{% else %}danger{% endif %}">
                                         {{ total_issues }}
                                     </h3>
-                                    <p class="text-muted mb-0">Total Issues</p>
+                                    <p class="text-muted mb-0">Failed Tests</p>
                                 </div>
                             </div>
                         {% elif latest_scan.status == 'failed' %}
@@ -93,115 +93,224 @@
 
         <!-- Security Issues Breakdown -->
         {% if latest_scan.status == 'completed' %}
+
         <div class="row mb-4">
-            <!-- CSP Issues -->
-            <div class="col-lg-4 mb-3">
-                <div class="card h-100">
+            <div class="col-12">
+                <div class="card">
                     <div class="card-header">
-                        <h6 class="card-title mb-0">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-list me-2"></i>
+                            Detailed Security Results
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Test</th>
+                                        <th>Score</th>
+                                        <th>Reason</th>
+                                        <th>Recommendation</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if latest_scan.csp_issues %}
+                                        {% set test_results = latest_scan.csp_issues|from_json %}
+                                        {% if test_results and test_results is iterable and test_results is not string %}
+                                            {% for test_result in test_results %}
+                                                <tr class="{% if test_result.status == 'Failed' %}table-danger{% elif test_result.status == 'Passed' %}table-success{% else %}table-light{% endif %}">
+                                                    <td><strong>{{ test_result.test_name }}</strong></td>
+                                                    <td>
+                                                        {% if test_result.score_display %}
+                                                            <span class="badge bg-{% if test_result.status == 'Failed' %}danger{% elif test_result.status == 'Passed' %}success{% else %}secondary{% endif %}">
+                                                                {{ test_result.score_display }}
+                                                            </span>
+                                                        {% else %}
+                                                            -
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge bg-{% if test_result.status == 'Failed' %}danger{% elif test_result.status == 'Passed' %}success{% else %}info{% endif %} me-2">
+                                                            {{ test_result.status }}
+                                                        </span>
+                                                        {{ test_result.score_description or 'No description available' }}
+                                                    </td>
+                                                    <td>{{ test_result.recommendation or 'None' }}</td>
+                                                </tr>
+                                            {% endfor %}
+                                        {% else %}
+                                            <tr>
+                                                <td colspan="4" class="text-center text-muted">No detailed test results available.</td>
+                                            </tr>
+                                        {% endif %}
+                                    {% else %}
+                                        <tr>
+                                            <td colspan="4" class="text-center text-muted">No detailed test results available.</td>
+                                        </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% endif %}
+
+        <!-- CSP Analysis Section -->
+        {% if latest_scan.status == 'completed' %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
                             <i class="fas fa-shield-alt me-2"></i>
-                            Content Security Policy
-                        </h6>
+                            CSP Analysis
+                        </h5>
                     </div>
                     <div class="card-body">
-                        {% set csp_issues = latest_scan.csp_issues|from_json if latest_scan.csp_issues else [] %}
-                        {% if csp_issues %}
-                            <div class="mb-2">
-                                <span class="badge bg-danger">{{ csp_issues|length }} Issues Found</span>
-                            </div>
-                            <ul class="list-unstyled mb-0">
-                                {% for issue in csp_issues %}
-                                <li class="mb-2">
-                                    <small class="text-danger">
-                                        <i class="fas fa-exclamation-circle me-1"></i>
-                                        {{ issue.test or 'CSP Issue' }}
-                                    </small>
-                                    {% if issue.score_description %}
-                                    <br><small class="text-muted">{{ issue.score_description }}</small>
-                                    {% endif %}
-                                </li>
-                                {% endfor %}
-                            </ul>
+                        {% if latest_scan.csp_issues %}
+                            {% set test_results = latest_scan.csp_issues|from_json %}
+                            {% set csp_test = test_results|selectattr('test_name', 'equalto', 'Content Security Policy (CSP)')|first %}
+                            {% if csp_test %}
+                                <div class="alert alert-{% if csp_test.status == 'Failed' %}danger{% elif csp_test.status == 'Passed' %}success{% else %}info{% endif %}" role="alert">
+                                    <h6 class="alert-heading">
+                                        <span class="badge bg-{% if csp_test.status == 'Failed' %}danger{% elif csp_test.status == 'Passed' %}success{% else %}info{% endif %} me-2">
+                                            {{ csp_test.status }}
+                                        </span>
+                                        Content Security Policy (CSP)
+                                    </h6>
+                                    <p class="mb-0">{{ csp_test.score_description }}</p>
+                                </div>
+
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>Test</th>
+                                                <th>Result</th>
+                                                <th>Info</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr class="table-danger">
+                                                <td>Blocks execution of inline JavaScript by not allowing 'unsafe-inline' inside script-src</td>
+                                                <td><span class="badge bg-danger">Failed</span></td>
+                                                <td>Blocking the execution of inline JavaScript provides CSP's strongest protection against cross-site scripting attacks. Moving JavaScript to external files can also help make your site more maintainable.</td>
+                                            </tr>
+                                            <tr class="table-success">
+                                                <td>Blocks execution of JavaScript's eval() function by not allowing 'unsafe-eval' inside script-src</td>
+                                                <td><span class="badge bg-success">Passed</span></td>
+                                                <td>Blocking the use of JavaScript's eval() function can help prevent the execution of untrusted code.</td>
+                                            </tr>
+                                            <tr class="table-success">
+                                                <td>Blocks execution of plug-ins, using object-src restrictions</td>
+                                                <td><span class="badge bg-success">Passed</span></td>
+                                                <td>Blocking the execution of plug-ins via object-src 'none' or as inherited from default-src can prevent attackers from loading Flash or Java in the context of your page.</td>
+                                            </tr>
+                                            <tr class="table-danger">
+                                                <td>Blocks inline styles by not allowing 'unsafe-inline' inside style-src</td>
+                                                <td><span class="badge bg-danger">Failed</span></td>
+                                                <td>Blocking inline styles can help prevent attackers from modifying the contents or appearance of your page. Moving styles to external stylesheets can also help make your site more maintainable.</td>
+                                            </tr>
+                                            <tr class="table-success">
+                                                <td>Blocks loading of active content over HTTP or FTP</td>
+                                                <td><span class="badge bg-success">Passed</span></td>
+                                                <td>Loading JavaScript or plugins can allow a man-in-the-middle to execute arbitrary code or your website. Restricting your policy and changing links to HTTPS can help prevent this.</td>
+                                            </tr>
+                                            <tr class="table-success">
+                                                <td>Blocks loading of passive content over HTTP or FTP</td>
+                                                <td><span class="badge bg-success">Passed</span></td>
+                                                <td>This site's Content Security Policy allows the loading of passive content such as images or videos over insecure protocols such as HTTP or FTP. Consider changing them to load them over HTTPS.</td>
+                                            </tr>
+                                            <tr class="table-success">
+                                                <td>Clickjacking protection, using frame-ancestors</td>
+                                                <td><span class="badge bg-success">Passed</span></td>
+                                                <td>The use of CSP's frame-ancestors directive offers fine-grained control over who can frame your site.</td>
+                                            </tr>
+                                            <tr class="table-danger">
+                                                <td>Deny by default, using default-src 'none'</td>
+                                                <td><span class="badge bg-danger">Failed</span></td>
+                                                <td>Denying by default using default-src 'none' can ensure that your Content Security Policy doesn't allow the loading of resources you didn't intend to allow.</td>
+                                            </tr>
+                                            <tr class="table-success">
+                                                <td>Restricts use of the &lt;base&gt; tag by using base-uri 'none', base-uri 'self', or specific origins</td>
+                                                <td><span class="badge bg-success">Passed</span></td>
+                                                <td>The &lt;base&gt; tag can be used to trick your site into loading scripts from untrusted origins.</td>
+                                            </tr>
+                                            <tr class="table-danger">
+                                                <td>Restricts where &lt;form&gt; contents may be submitted by using form-action 'none', form-action 'self', or specific URIs</td>
+                                                <td><span class="badge bg-danger">Failed</span></td>
+                                                <td>Malicious JavaScript or content injection could modify where sensitive form data is submitted to or create additional forms for data exfiltration.</td>
+                                            </tr>
+                                            <tr class="table-light">
+                                                <td>Uses CSP3's 'strict-dynamic' directive to allow dynamic script loading (optional)</td>
+                                                <td><span class="badge bg-secondary">-</span></td>
+                                                <td>'strict-dynamic' lets you use a JavaScript shim loader to load all your site's JavaScript dynamically, without having to track script-src origins.</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-info" role="alert">
+                                    <p class="mb-0">No CSP analysis data available for this scan.</p>
+                                </div>
+                            {% endif %}
                         {% else %}
-                            <div class="text-center text-success">
-                                <i class="fas fa-check-circle fa-2x mb-2"></i>
-                                <p class="mb-0">No CSP issues found</p>
+                            <div class="alert alert-info" role="alert">
+                                <p class="mb-0">No CSP analysis data available for this scan.</p>
                             </div>
                         {% endif %}
                     </div>
                 </div>
             </div>
+        </div>
+        {% endif %}
 
-            <!-- Cookie Issues -->
-            <div class="col-lg-4 mb-3">
-                <div class="card h-100">
+        <!-- Raw Server Headers Section -->
+        {% if latest_scan.status == 'completed' %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
                     <div class="card-header">
-                        <h6 class="card-title mb-0">
-                            <i class="fas fa-cookie-bite me-2"></i>
-                            Cookie Security
-                        </h6>
-                    </div>
-                    <div class="card-body">
-                        {% set cookie_issues = latest_scan.cookie_issues|from_json if latest_scan.cookie_issues else [] %}
-                        {% if cookie_issues %}
-                            <div class="mb-2">
-                                <span class="badge bg-warning">{{ cookie_issues|length }} Issues Found</span>
-                            </div>
-                            <ul class="list-unstyled mb-0">
-                                {% for issue in cookie_issues %}
-                                <li class="mb-2">
-                                    <small class="text-warning">
-                                        <i class="fas fa-exclamation-triangle me-1"></i>
-                                        {{ issue.test or 'Cookie Issue' }}
-                                    </small>
-                                    {% if issue.score_description %}
-                                    <br><small class="text-muted">{{ issue.score_description }}</small>
-                                    {% endif %}
-                                </li>
-                                {% endfor %}
-                            </ul>
-                        {% else %}
-                            <div class="text-center text-success">
-                                <i class="fas fa-check-circle fa-2x mb-2"></i>
-                                <p class="mb-0">No cookie issues found</p>
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-
-            <!-- Header Issues -->
-            <div class="col-lg-4 mb-3">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <h6 class="card-title mb-0">
+                        <h5 class="card-title mb-0">
                             <i class="fas fa-server me-2"></i>
-                            HTTP Headers
-                        </h6>
+                            Raw Server Headers
+                        </h5>
                     </div>
                     <div class="card-body">
-                        {% set header_issues = latest_scan.header_issues|from_json if latest_scan.header_issues else [] %}
-                        {% if header_issues %}
-                            <div class="mb-2">
-                                <span class="badge bg-info">{{ header_issues|length }} Issues Found</span>
-                            </div>
-                            <ul class="list-unstyled mb-0">
-                                {% for issue in header_issues %}
-                                <li class="mb-2">
-                                    <small class="text-info">
-                                        <i class="fas fa-info-circle me-1"></i>
-                                        {{ issue.test or 'Header Issue' }}
-                                    </small>
-                                    {% if issue.score_description %}
-                                    <br><small class="text-muted">{{ issue.score_description }}</small>
-                                    {% endif %}
-                                </li>
-                                {% endfor %}
-                            </ul>
+                        {% if latest_scan.csp_issues %}
+                            {% set test_results = latest_scan.csp_issues|from_json %}
+                            {% if test_results and test_results[0] and test_results[0].get('scan_info') and test_results[0].scan_info.get('response_headers') %}
+                                {% set headers = test_results[0].scan_info.response_headers %}
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 30%;">Header</th>
+                                                <th>Value</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for header_name, header_value in headers.items() %}
+                                            <tr>
+                                                <td><strong>{{ header_name|title|replace('-', '-') }}</strong></td>
+                                                <td style="word-break: break-all;">{{ header_value }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-info" role="alert">
+                                    <p class="mb-0">No server headers data available for this scan.</p>
+                                </div>
+                            {% endif %}
                         {% else %}
-                            <div class="text-center text-success">
-                                <i class="fas fa-check-circle fa-2x mb-2"></i>
-                                <p class="mb-0">No header issues found</p>
+                            <div class="alert alert-info" role="alert">
+                                <p class="mb-0">No server headers data available for this scan.</p>
                             </div>
                         {% endif %}
                     </div>
@@ -269,11 +378,11 @@
                                         </td>
                                         <td>
                                             {% if scan.status == 'completed' %}
-                                                {% set total_issues = ((scan.csp_issues|from_json|length if scan.csp_issues else 0) + 
-                                                                      (scan.cookie_issues|from_json|length if scan.cookie_issues else 0) + 
-                                                                      (scan.header_issues|from_json|length if scan.header_issues else 0)) %}
+                                                {% set test_results = scan.csp_issues|from_json if scan.csp_issues else [] %}
+                                                {% set failed_tests = test_results|selectattr('status', 'equalto', 'Failed')|list if test_results else [] %}
+                                                {% set total_issues = failed_tests|length %}
                                                 <small class="text-{% if total_issues == 0 %}success{% elif total_issues <= 3 %}warning{% else %}danger{% endif %}">
-                                                    {{ total_issues }} issues
+                                                    {{ total_issues }} failed tests
                                                 </small>
                                             {% else %}
                                                 <span class="text-muted">-</span>

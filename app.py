@@ -1,3 +1,4 @@
+
 import os
 import logging
 from flask import Flask
@@ -32,23 +33,23 @@ db.init_app(app)
 scan_results = {}
 scan_history = {}
 
+# Add custom Jinja2 filters
+import json
+
+@app.template_filter('from_json')
+def from_json_filter(value):
+    """Convert JSON string to Python object"""
+    if not value:
+        return []
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+# Import models and routes after app setup
+import models
+import routes
+
 with app.app_context():
-    # Import models and routes
-    import models
-    import routes
-    
-    # Add custom Jinja2 filters
-    import json
-    
-    @app.template_filter('from_json')
-    def from_json_filter(value):
-        """Convert JSON string to Python object"""
-        if not value:
-            return []
-        try:
-            return json.loads(value)
-        except (json.JSONDecodeError, TypeError):
-            return []
-    
     # Create all tables
     db.create_all()

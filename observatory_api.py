@@ -1,3 +1,4 @@
+
 import requests
 import logging
 import time
@@ -7,356 +8,195 @@ import re
 from bs4 import BeautifulSoup
 
 class ObservatoryAPI:
-    """Interface to Mozilla HTTP Observatory via MDN Observatory pages"""
-    
+    """Interface to Mozilla HTTP Observatory via API"""
+
     BASE_URL = "https://developer.mozilla.org/en-US/observatory/analyze"
-    
+    API_BASE_URL = "https://observatory-api.mdn.mozilla.net/api/v2"
+
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'application/json, text/plain, */*',
+            'Accept': 'application/json, text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.9',
             'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-            'Sec-Fetch-Dest': 'empty',
-            'Sec-Fetch-Mode': 'cors',
-            'Sec-Fetch-Site': 'cross-site'
+            'Connection': 'keep-alive'
         })
-    
+
     def scan_domain(self, hostname):
         """
-        Perform a comprehensive security scan of a domain by scraping MDN Observatory pages
+        Perform a comprehensive security scan of a domain
         Returns a dictionary with scan results or error information
         """
         try:
-            # Get main scoring page
-            main_url = f"{self.BASE_URL}?host={quote(hostname)}"
-            response = self.session.get(main_url, timeout=30)
-            response.raise_for_status()
+            logging.info(f"Starting scan for {hostname}")
+
+            # Step 1: Trigger scan by loading MDN Observatory page
+            trigger_url = f"{self.BASE_URL}?host={quote(hostname)}"
+            logging.info(f"Triggering scan at: {trigger_url}")
             
-            soup = BeautifulSoup(response.content, 'html.parser')
+            trigger_response = self.session.get(trigger_url, timeout=30)
+            trigger_response.raise_for_status()
             
-            # Extract security score and grade
-            score, grade = self._extract_score_and_grade(soup)
+            # Wait a moment for scan to initiate
+            time.sleep(2)
+
+            # Step 2: Fetch data from API endpoint
+            api_url = f"{self.API_BASE_URL}/analyze?host={quote(hostname)}"
+            logging.info(f"Fetching data from API: {api_url}")
             
-            # Get CSP issues
-            csp_issues = self._get_csp_issues(hostname)
+            api_response = self.session.get(api_url, timeout=30)
+            api_response.raise_for_status()
             
-            # Get cookie issues  
-            cookie_issues = self._get_cookie_issues(hostname)
-            
-            # Get header issues
-            header_issues = self._get_header_issues(hostname)
-            
+            data = api_response.json()
+            logging.info(f"API response received for {hostname}")
+
+            # Parse the API response
+            return self._parse_api_response(data, hostname)
+
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Network error scanning {hostname}: {str(e)}")
             return {
-                'status': 'success',
-                'score': score,
-                'grade': grade,
-                'csp_issues': csp_issues,
-                'cookie_issues': cookie_issues,
-                'header_issues': header_issues
+                'status': 'error',
+                'error': f'Network error: {str(e)}'
             }
-            
+        except json.JSONDecodeError as e:
+            logging.error(f"JSON decode error for {hostname}: {str(e)}")
+            return {
+                'status': 'error',
+                'error': f'Invalid API response: {str(e)}'
+            }
         except Exception as e:
             logging.error(f"Error scanning {hostname}: {str(e)}")
             return {
                 'status': 'error',
                 'error': str(e)
             }
-    
-    def _extract_score_and_grade(self, soup):
-        """Extract security score and grade from main page"""
-        score = None
-        grade = None
+
+    def _parse_api_response(self, data, hostname):
+        """Parse the API response and extract security information"""
+        try:
+            # Extract basic information
+            scan_info = data.get('scan', {})
+            score = scan_info.get('score', 0)
+            grade = scan_info.get('grade', 'F')
+            
+            # Extract test results
+            tests = data.get('tests', {})
+            
+            # Parse all test details
+            test_results = self._extract_all_test_details(tests)
+            
+            logging.info(f"Parsed data for {hostname} - Score: {score}, Grade: {grade}")
+            logging.info(f"Total tests found: {len(test_results)}")
+
+            return {
+                'status': 'success',
+                'score': score,
+                'grade': grade,
+                'test_results': test_results,
+                'scan_info': scan_info
+            }
+
+        except Exception as e:
+            logging.error(f"Error parsing API response for {hostname}: {str(e)}")
+            return {
+                'status': 'error',
+                'error': f'Error parsing response: {str(e)}'
+            }
+
+    def _extract_all_test_details(self, tests):
+        """Extract all test details from the API response"""
+        test_results = []
         
-        try:
-            # Look for score in various possible selectors
-            score_selectors = [
-                '.score', '.security-score', '[data-score]', 
-                '.grade-score', '.total-score'
-            ]
-            
-            for selector in score_selectors:
-                score_elem = soup.select_one(selector)
-                if score_elem:
-                    score_text = score_elem.get_text(strip=True)
-                    score_match = re.search(r'(\d+)', score_text)
-                    if score_match:
-                        score = int(score_match.group(1))
-                        break
-            
-            # Look for grade
-            grade_selectors = [
-                '.grade', '.security-grade', '[data-grade]',
-                '.letter-grade', '.overall-grade'
-            ]
-            
-            for selector in grade_selectors:
-                grade_elem = soup.select_one(selector)
-                if grade_elem:
-                    grade_text = grade_elem.get_text(strip=True)
-                    grade_match = re.search(r'([A-F][+\-]?)', grade_text)
-                    if grade_match:
-                        grade = grade_match.group(1)
-                        break
-                        
-        except Exception as e:
-            logging.warning(f"Error extracting score/grade: {str(e)}")
-            
-        return score, grade
-    
-    def _get_csp_issues(self, hostname):
-        """Extract CSP-related security issues from CSP page"""
-        issues = []
-        try:
-            csp_url = f"{self.BASE_URL}?host={quote(hostname)}#csp"
-            response = self.session.get(csp_url, timeout=30)
-            response.raise_for_status()
-            
-            soup = BeautifulSoup(response.content, 'html.parser')
-            
-            # Look for CSP issues in various selectors
-            issue_selectors = [
-                '.csp-issue', '.security-issue', '.test-fail',
-                '.warning', '.error', '.issue'
-            ]
-            
-            for selector in issue_selectors:
-                elements = soup.select(selector)
-                for elem in elements:
-                    text = elem.get_text(strip=True)
-                    if 'csp' in text.lower() or 'content-security-policy' in text.lower():
-                        issues.append({
-                            'test': 'CSP Issue',
-                            'score_description': text,
-                            'score_modifier': -5
-                        })
-                        
-        except Exception as e:
-            logging.warning(f"Error getting CSP issues: {str(e)}")
-            
-        return issues
-    
-    def _get_cookie_issues(self, hostname):
-        """Extract cookie-related security issues from cookies page"""
-        issues = []
-        try:
-            cookie_url = f"{self.BASE_URL}?host={quote(hostname)}#cookies"
-            response = self.session.get(cookie_url, timeout=30)
-            response.raise_for_status()
-            
-            soup = BeautifulSoup(response.content, 'html.parser')
-            
-            # Look for cookie issues
-            issue_selectors = [
-                '.cookie-issue', '.security-issue', '.test-fail',
-                '.warning', '.error', '.issue'
-            ]
-            
-            for selector in issue_selectors:
-                elements = soup.select(selector)
-                for elem in elements:
-                    text = elem.get_text(strip=True)
-                    if 'cookie' in text.lower() or 'secure' in text.lower() or 'httponly' in text.lower():
-                        issues.append({
-                            'test': 'Cookie Security Issue',
-                            'score_description': text,
-                            'score_modifier': -3
-                        })
-                        
-        except Exception as e:
-            logging.warning(f"Error getting cookie issues: {str(e)}")
-            
-        return issues
-    
-    def _get_header_issues(self, hostname):
-        """Extract header-related security issues from headers page"""
-        issues = []
-        try:
-            header_url = f"{self.BASE_URL}?host={quote(hostname)}#headers"
-            response = self.session.get(header_url, timeout=30)
-            response.raise_for_status()
-            
-            soup = BeautifulSoup(response.content, 'html.parser')
-            
-            # Look for header issues
-            issue_selectors = [
-                '.header-issue', '.security-issue', '.test-fail',
-                '.warning', '.error', '.issue'
-            ]
-            
-            for selector in issue_selectors:
-                elements = soup.select(selector)
-                for elem in elements:
-                    text = elem.get_text(strip=True)
-                    if any(header in text.lower() for header in ['header', 'hsts', 'x-frame', 'x-content']):
-                        issues.append({
-                            'test': 'HTTP Header Issue',
-                            'score_description': text,
-                            'score_modifier': -2
-                        })
-                        
-        except Exception as e:
-            logging.warning(f"Error getting header issues: {str(e)}")
-            
-        return issues
-    
-    def _wait_for_scan_completion(self, scan_id, max_attempts=30, delay=2):
-        """Wait for scan to complete"""
-        for attempt in range(max_attempts):
-            try:
-                url = urljoin(self.BASE_URL, f"getScanResults?scan={scan_id}")
-                response = self.session.get(url)
-                response.raise_for_status()
-                
-                data = response.json()
-                
-                if data.get('state') == 'FINISHED':
-                    return {
-                        'status': 'success',
-                        'data': data
-                    }
-                elif data.get('state') == 'FAILED':
-                    return {
-                        'status': 'error',
-                        'error': 'Scan failed'
-                    }
-                
-                time.sleep(delay)
-                
-            except Exception as e:
-                logging.warning(f"Error checking scan status (attempt {attempt + 1}): {str(e)}")
-                time.sleep(delay)
-        
-        return {
-            'status': 'error',
-            'error': 'Scan timeout - took too long to complete'
-        }
-    
-    def _get_detailed_results(self, hostname, scan_id):
-        """Get detailed scan results"""
-        results = {
-            'score': None,
-            'grade': None,
-            'csp_issues': [],
-            'cookie_issues': [],
-            'header_issues': []
+        # Define test mapping with display names
+        test_mapping = {
+            'content-security-policy': 'Content Security Policy (CSP)',
+            'cookies': 'Cookies',
+            'cross-origin-resource-sharing': 'Cross Origin Resource Sharing (CORS)',
+            'redirection': 'Redirection',
+            'referrer-policy': 'Referrer Policy',
+            'strict-transport-security': 'Strict Transport Security (HSTS)',
+            'subresource-integrity': 'Subresource Integrity',
+            'x-content-type-options': 'X-Content-Type-Options',
+            'x-frame-options': 'X-Frame-Options',
+            'cross-origin-resource-policy': 'Cross Origin Resource Policy'
         }
         
-        try:
-            # Get basic scan results
-            basic_url = urljoin(self.BASE_URL, f"getScanResults?scan={scan_id}")
-            response = self.session.get(basic_url)
-            response.raise_for_status()
-            data = response.json()
-            
-            results['score'] = data.get('score')
-            results['grade'] = data.get('grade')
-            
-            # Get CSP results
-            csp_results = self._get_csp_results(hostname)
-            results['csp_issues'] = csp_results
-            
-            # Get cookie results
-            cookie_results = self._get_cookie_results(hostname)
-            results['cookie_issues'] = cookie_results
-            
-            # Get header results
-            header_results = self._get_header_results(hostname)
-            results['header_issues'] = header_results
-            
-        except Exception as e:
-            logging.error(f"Error getting detailed results: {str(e)}")
-        
-        return results
-    
-    def _get_csp_results(self, hostname):
-        """Extract CSP-related security issues"""
-        issues = []
-        try:
-            url = urljoin(self.BASE_URL, f"getScanHistory?host={quote(hostname)}")
-            response = self.session.get(url)
-            response.raise_for_status()
-            data = response.json()
-            
-            # Look for CSP-related test results
-            for scan in data:
-                if 'tests' in scan:
-                    for test_name, test_result in scan['tests'].items():
-                        if 'csp' in test_name.lower():
-                            if test_result.get('pass') == False:
-                                issues.append({
-                                    'test': test_name,
-                                    'score_modifier': test_result.get('score_modifier', 0),
-                                    'score_description': test_result.get('score_description', '')
-                                })
-                break  # Only check the latest scan
+        for test_key, test_name in test_mapping.items():
+            test_data = tests.get(test_key, {})
+            if test_data:
+                score_modifier = test_data.get('score_modifier', 0)
+                result = test_data.get('result', '')
+                pass_status = test_data.get('pass')
                 
-        except Exception as e:
-            logging.error(f"Error getting CSP results: {str(e)}")
-        
-        return issues
-    
-    def _get_cookie_results(self, hostname):
-        """Extract cookie-related security issues"""
-        issues = []
-        try:
-            url = urljoin(self.BASE_URL, f"getScanHistory?host={quote(hostname)}")
-            response = self.session.get(url)
-            response.raise_for_status()
-            data = response.json()
-            
-            for scan in data:
-                if 'tests' in scan:
-                    for test_name, test_result in scan['tests'].items():
-                        if 'cookie' in test_name.lower():
-                            if test_result.get('pass') == False:
-                                issues.append({
-                                    'test': test_name,
-                                    'score_modifier': test_result.get('score_modifier', 0),
-                                    'score_description': test_result.get('score_description', '')
-                                })
-                break
+                # Determine status
+                if pass_status is True:
+                    status = 'Passed'
+                elif pass_status is False:
+                    status = 'Failed'
+                else:
+                    status = 'Info'
                 
-        except Exception as e:
-            logging.error(f"Error getting cookie results: {str(e)}")
-        
-        return issues
-    
-    def _get_header_results(self, hostname):
-        """Extract header-related security issues"""
-        issues = []
-        try:
-            url = urljoin(self.BASE_URL, f"getScanHistory?host={quote(hostname)}")
-            response = self.session.get(url)
-            response.raise_for_status()
-            data = response.json()
-            
-            for scan in data:
-                if 'tests' in scan:
-                    for test_name, test_result in scan['tests'].items():
-                        if any(header in test_name.lower() for header in ['header', 'hsts', 'x-frame', 'x-content']):
-                            if test_result.get('pass') == False:
-                                issues.append({
-                                    'test': test_name,
-                                    'score_modifier': test_result.get('score_modifier', 0),
-                                    'score_description': test_result.get('score_description', '')
-                                })
-                break
+                # Clean up score description and recommendation
+                score_description = test_data.get('score_description', '')
+                recommendation = test_data.get('recommendation', '')
                 
-        except Exception as e:
-            logging.error(f"Error getting header results: {str(e)}")
+                # Remove HTML tags from descriptions
+                if score_description:
+                    score_description = re.sub(r'<[^>]+>', '', score_description).strip()
+                    score_description = re.sub(r'\s+', ' ', score_description)
+                
+                if recommendation:
+                    recommendation = re.sub(r'<[^>]+>', '', recommendation).strip()
+                    recommendation = re.sub(r'\s+', ' ', recommendation)
+                
+                # Handle special cases for display
+                if score_modifier == 0 and status == 'Passed':
+                    if 'preload' in score_description.lower():
+                        score_display = '0*'
+                    else:
+                        score_display = '0'
+                elif score_modifier == 0 and test_key in ['cookies', 'subresource-integrity']:
+                    score_display = '-'
+                else:
+                    score_display = str(score_modifier) if score_modifier != 0 else '0'
+                
+                test_results.append({
+                    'test_name': test_name,
+                    'score': score_modifier,
+                    'score_display': score_display,
+                    'status': status,
+                    'result': result,
+                    'score_description': score_description or 'No description available',
+                    'recommendation': recommendation or 'None',
+                    'pass': pass_status
+                })
         
-        return issues
-    
+        return test_results
+
     def get_scan_history(self, hostname):
-        """Get scan history for a domain"""
+        """Get scan history for a domain from API"""
         try:
-            url = urljoin(self.BASE_URL, f"getScanHistory?host={quote(hostname)}")
-            response = self.session.get(url)
+            history_url = f"{self.API_BASE_URL}/getScanHistory?host={quote(hostname)}"
+            response = self.session.get(history_url, timeout=30)
             response.raise_for_status()
+            
             return response.json()
+
         except Exception as e:
-            logging.error(f"Error getting scan history: {str(e)}")
+            logging.error(f"Error getting scan history for {hostname}: {str(e)}")
             return []
+
+    def get_benchmark_comparison(self, hostname):
+        """Get benchmark comparison data"""
+        try:
+            # The API doesn't have a direct benchmark endpoint, so we'll return basic info
+            return {
+                'comparison_available': True,
+                'details': f'Benchmark data available via Observatory API for {hostname}'
+            }
+
+        except Exception as e:
+            logging.error(f"Error getting benchmark comparison for {hostname}: {str(e)}")
+            return {}
