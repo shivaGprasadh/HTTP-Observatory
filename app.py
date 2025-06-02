@@ -72,10 +72,10 @@ def status_badge_class_filter(pass_value):
     from utils import get_status_badge_class
     return get_status_badge_class(pass_value)
 
-# Import models and routes after app setup to avoid circular imports
-import models
-import routes
-
 with app.app_context():
+    # Import models and routes after app setup to avoid circular imports
+    import models
+    import routes
+    
     # Create all tables
     db.create_all()

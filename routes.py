@@ -295,43 +295,242 @@ def domain_results(domain_id):
 
 @app.route('/export_csv')
 def export_csv():
-    """Export all scan results as CSV"""
+    """Export latest scan results in the exact format requested"""
     output = io.StringIO()
     writer = csv.writer(output)
     
-    # CSV Headers
-    headers = [
-        'Domain', 'Scan Date', 'Overall Score', 'Grade', 'Status',
-        'CSP Issues Count', 'Cookie Issues Count', 'Header Issues Count',
-        'CSP Details', 'Cookie Details', 'Header Details', 'Error Message'
-    ]
-    writer.writerow(headers)
+    # Get latest scan results for each domain (to avoid duplicates)
+    from sqlalchemy import func
     
-    # Get all scan results
-    scans = db.session.query(ScanResult).join(Domain).filter(
-        Domain.is_active == True
-    ).order_by(Domain.hostname, ScanResult.scan_date.desc()).all()
+    # Subquery to get the latest scan date for each domain
+    latest_scan_dates = db.session.query(
+        ScanResult.domain_id,
+        func.max(ScanResult.scan_date).label('latest_date')
+    ).group_by(ScanResult.domain_id).subquery()
     
-    for scan in scans:
-        csp_issues = json.loads(scan.csp_issues) if scan.csp_issues else []
-        cookie_issues = json.loads(scan.cookie_issues) if scan.cookie_issues else []
-        header_issues = json.loads(scan.header_issues) if scan.header_issues else []
+    # Join with the subquery to get the complete latest scan records
+    latest_scans = db.session.query(ScanResult).join(Domain).join(
+        latest_scan_dates,
+        (ScanResult.domain_id == latest_scan_dates.c.domain_id) &
+        (ScanResult.scan_date == latest_scan_dates.c.latest_date)
+    ).filter(Domain.is_active == True).order_by(Domain.hostname).all()
+    
+    for scan in latest_scans:
+        domain_name = scan.domain.hostname
         
-        row = [
-            scan.domain.hostname,
-            scan.scan_date.strftime('%Y-%m-%d %H:%M:%S') if scan.scan_date else '',
-            scan.overall_score or '',
-            scan.grade or '',
-            scan.status,
-            len(csp_issues),
-            len(cookie_issues),
-            len(header_issues),
-            '; '.join([str(issue) for issue in csp_issues]) if csp_issues else '',
-            '; '.join([str(issue) for issue in cookie_issues]) if cookie_issues else '',
-            '; '.join([str(issue) for issue in header_issues]) if header_issues else '',
-            scan.error_message or ''
+        # Parse test results
+        test_results = json.loads(scan.csp_issues) if scan.csp_issues else []
+        scan_info = json.loads(scan.cookie_issues) if scan.cookie_issues else {}
+        
+        # Create a mapping of test results by name for easy lookup
+        test_map = {}
+        if test_results:
+            for test in test_results:
+                test_map[test.get('test_name', '')] = test
+        
+        # DETAILED SECURITY RESULTS SECTION
+        writer.writerow([f'Detailed Security Results - {domain_name}'])
+        writer.writerow(['Test', 'Score', 'Reason', 'Recommendation'])
+        
+        # Define the test order and format scores according to the example
+        security_tests = [
+            'Content Security Policy (CSP)',
+            'Cookies',
+            'Cross Origin Resource Sharing (CORS)',
+            'Redirection',
+            'Referrer Policy',
+            'Strict Transport Security (HSTS)',
+            'Subresource Integrity',
+            'X-Content-Type-Options',
+            'X-Frame-Options',
+            'Cross Origin Resource Policy'
         ]
-        writer.writerow(row)
+        
+        for test_name in security_tests:
+            test = test_map.get(test_name, {})
+            
+            # Format score display according to the example
+            score = test.get('score', 0)
+            status = test.get('status', 'N/A')
+            
+            if test_name in ['Cookies', 'Subresource Integrity'] and status == 'Info':
+                score_display = '-'
+            elif score == 0 and status == 'Passed':
+                if 'preload' in test.get('score_description', '').lower():
+                    score_display = '0*'
+                else:
+                    score_display = '0'
+            else:
+                score_display = str(score) if score != 0 else '0'
+            
+            # Get reason (score_description) and recommendation
+            reason = test.get('score_description', 'No description available')
+            recommendation = test.get('recommendation', 'None')
+            
+            # Clean up the reason text
+            if status == 'Info':
+                reason = f"Info {reason}"
+            elif status == 'Passed':
+                reason = f"Passed {reason}"
+            elif status == 'Failed':
+                reason = f"Failed {reason}"
+            
+            writer.writerow([test_name, score_display, reason, recommendation])
+        
+        # Add empty rows for spacing
+        writer.writerow([])
+        writer.writerow([])
+        
+        # CSP ANALYSIS SECTION
+        writer.writerow(['CSP Analysis'])
+        writer.writerow(['Security Test', 'Status', 'Description', 'Additional Information'])
+        
+        # Parse CSP analysis from scan info
+        policy_data = scan_info.get('policy', {}) if scan_info else {}
+        csp_analysis = {}
+        csp_descriptions = {}
+        
+        if policy_data and policy_data.get('content_security_policy', {}).get('policy'):
+            from utils import parse_csp_policy_data
+            csp_policy = policy_data['content_security_policy']['policy']
+            csp_tests = parse_csp_policy_data(csp_policy)
+            for test in csp_tests:
+                csp_analysis[test.get('technical_name', '')] = test.get('pass', False)
+                csp_descriptions[test.get('technical_name', '')] = {
+                    'name': test.get('name', ''),
+                    'description': test.get('description', ''),
+                    'info': test.get('info', '')
+                }
+        
+        # Define CSP tests in the order from the example
+        csp_test_order = [
+            ('antiClickjacking', 'Clickjacking Protection'),
+            ('defaultNone', 'Default Deny Policy'),
+            ('insecureBaseUri', 'Base URI Security'),
+            ('insecureFormAction', 'Form Action Security'),
+            ('insecureSchemeActive', 'Active Content Security (HTTPS)'),
+            ('insecureSchemePassive', 'Passive Content Security (HTTPS)'),
+            ('strictDynamic', 'Strict Dynamic Loading'),
+            ('unsafeEval', 'JavaScript eval() Protection'),
+            ('unsafeInline', 'Inline JavaScript Protection'),
+            ('unsafeInlineStyle', 'Inline Style Protection'),
+            ('unsafeObjects', 'Plugin Execution Protection')
+        ]
+        
+        for key, name in csp_test_order:
+            test_pass = csp_analysis.get(key, False)
+            status = 'Passed' if test_pass else 'Failed' if test_pass is False else 'Info'
+            
+            test_info = csp_descriptions.get(key, {})
+            description = test_info.get('description', f'{name} test')
+            additional_info = test_info.get('info', 'No additional information available')
+            
+            writer.writerow([name, status, description, additional_info])
+        
+        # Add empty rows for spacing
+        writer.writerow([])
+        writer.writerow([])
+        
+        # COOKIES SECURITY ANALYSIS SECTION
+        writer.writerow(['Cookies Security Analysis'])
+        writer.writerow(['Cookie Name', 'Secure', 'HttpOnly', 'SameSite', 'Issues'])
+        
+        cookies_data = scan_info.get('cookies', {}) if scan_info else {}
+        
+        if isinstance(cookies_data, dict) and cookies_data:
+            for cookie_name, cookie_info in cookies_data.items():
+                if isinstance(cookie_info, dict):
+                    secure = 'Yes' if cookie_info.get('secure') else 'No'
+                    httponly = 'Yes' if cookie_info.get('httponly') else 'No'
+                    samesite = cookie_info.get('samesite', 'Not Set')
+                    
+                    # Check for issues
+                    issues = []
+                    if not cookie_info.get('secure'):
+                        issues.append("Not Secure")
+                    if not cookie_info.get('httponly'):
+                        issues.append("Not HttpOnly")
+                    if not cookie_info.get('samesite'):
+                        issues.append("No SameSite")
+                    
+                    issues_text = ', '.join(issues) if issues else 'No issues'
+                    
+                    writer.writerow([cookie_name, secure, httponly, samesite, issues_text])
+        else:
+            writer.writerow(['No cookies detected', '-', '-', '-', 'No cookies found'])
+        
+        # Add empty rows for spacing
+        writer.writerow([])
+        writer.writerow([])
+        
+        # SECURITY POLICY ANALYSIS SECTION
+        writer.writerow(['Security Policy Analysis'])
+        writer.writerow(['Policy', 'Present', 'Value', 'Issues'])
+        
+        response_headers = policy_data.get('response_headers', {}) if policy_data else {}
+        
+        # HSTS Analysis
+        hsts_data = policy_data.get('strict_transport_security', {}) if policy_data else {}
+        hsts_present = 'Yes' if response_headers.get('Strict-Transport-Security') else 'No'
+        hsts_value = f"max-age={hsts_data.get('max_age', 'Not Set')}"
+        if hsts_data.get('include_subdomains'):
+            hsts_value += '; includeSubDomains'
+        if hsts_data.get('preload'):
+            hsts_value += '; preload'
+        hsts_issues = 'No issues' if hsts_present == 'Yes' else 'HSTS not implemented'
+        
+        writer.writerow(['HSTS', hsts_present, hsts_value, hsts_issues])
+        
+        # Referrer Policy Analysis
+        referrer_data = policy_data.get('referrer_policy', {}) if policy_data else {}
+        referrer_present = 'Yes' if response_headers.get('Referrer-Policy') else 'No'
+        referrer_value = referrer_data.get('policy', 'Not Set')
+        referrer_issues = 'No issues' if referrer_present == 'Yes' else 'Referrer Policy not set'
+        
+        writer.writerow(['Referrer Policy', referrer_present, referrer_value, referrer_issues])
+        
+        # CSP Policy Analysis
+        csp_present = 'Yes' if response_headers.get('Content-Security-Policy') else 'No'
+        csp_value = 'Present' if csp_present == 'Yes' else 'Not Set'
+        csp_issues = 'Review CSP directives' if csp_present == 'Yes' else 'CSP not implemented'
+        
+        writer.writerow(['Content Security Policy', csp_present, csp_value, csp_issues])
+        
+        # Add empty rows for spacing
+        writer.writerow([])
+        writer.writerow([])
+        
+        # MISSING SECURITY HEADERS SECTION
+        writer.writerow(['Missing Security Headers'])
+        writer.writerow(['Policy Header', 'Status', 'Value', 'Recommendation'])
+        
+        security_headers = {
+            'Strict-Transport-Security': 'Implement HSTS to enforce HTTPS',
+            'Content-Security-Policy': 'Implement CSP to prevent XSS attacks',
+            'X-Frame-Options': 'Implement to prevent clickjacking',
+            'X-Content-Type-Options': 'Set to nosniff to prevent MIME sniffing',
+            'X-Permitted-Cross-Domain-Policies': 'Control cross-domain policy files',
+            'Cross-Origin-Opener-Policy': 'Set to control cross-origin window access',
+            'Cross-Origin-Resource-Policy': 'Implement to control cross-origin access',
+            'Permissions-Policy': 'Control access to browser features and APIs',
+            'Referrer-Policy': 'Set referrer policy to control referrer information',
+            'Cross-Origin-Embedder-Policy': 'Set to control cross-origin embedding',
+            'X-XSS-Protection': 'Enable XSS filtering (legacy but still useful)'
+        }
+        
+        for header, recommendation in security_headers.items():
+            header_value = response_headers.get(header, '')
+            present = bool(header_value)
+            status = 'Present' if present else 'Missing'
+            value = header_value if present else 'Not Set'
+            rec = 'Already implemented' if present else recommendation
+            
+            writer.writerow([header, status, value, rec])
+        
+        # Add separator between domains
+        writer.writerow([])
+        writer.writerow(['=' * 80])
+        writer.writerow([])
     
     output.seek(0)
     

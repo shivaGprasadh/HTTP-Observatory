@@ -16,8 +16,8 @@
     /* Text colors for better visibility */
     --text_on_light: 0 0% 15%; /* Very dark gray for light backgrounds */
     --text_on_dark: 0 0% 95%; /* Very light gray for dark backgrounds */
-    --text_muted_light: 0 0% 40%; /* Muted text for light backgrounds */
-    --text_muted_dark: 0 0% 70%; /* Muted text for dark backgrounds */
+    --text_muted_light: 0 0% 45%; /* Muted text for light backgrounds */
+    --text_muted_dark: 0 0% 75%; /* Muted text for dark backgrounds */
 }
 
 /* Security grade badges with better contrast */
@@ -200,60 +200,9 @@
     }
 }
 
-/* Improved text visibility in tables */
+/* Basic table styling */
 .table > :not(caption) > * > * {
-    color: hsl(var(--text_on_light));
     border-bottom-color: rgba(0, 0, 0, 0.125);
-}
-
-.table-danger {
-    background-color: rgba(220, 53, 69, 0.1) !important;
-    color: hsl(354 70% 25%) !important;
-}
-
-.table-danger td,
-.table-danger th {
-    color: hsl(354 70% 25%) !important;
-}
-
-.table-success {
-    background-color: rgba(25, 135, 84, 0.1) !important;
-    color: hsl(142 76% 25%) !important;
-}
-
-.table-success td,
-.table-success th {
-    color: hsl(142 76% 25%) !important;
-}
-
-.table-warning {
-    background-color: rgba(255, 193, 7, 0.1) !important;
-    color: hsl(45 93% 25%) !important;
-}
-
-.table-warning td,
-.table-warning th {
-    color: hsl(45 93% 25%) !important;
-}
-
-.table-light {
-    background-color: rgba(248, 249, 250, 0.5) !important;
-    color: hsl(var(--text_on_light)) !important;
-}
-
-.table-light td,
-.table-light th {
-    color: hsl(var(--text_on_light)) !important;
-}
-
-.table-primary {
-    background-color: rgba(13, 110, 253, 0.1) !important;
-    color: hsl(210 100% 25%) !important;
-}
-
-.table-primary td,
-.table-primary th {
-    color: hsl(210 100% 25%) !important;
 }
 
 /* Improved alert text visibility */
@@ -339,7 +288,6 @@ code {
 
 [data-bs-theme="dark"] .table > :not(caption) > * > * {
     border-bottom-color: rgba(255, 255, 255, 0.125);
-    color: hsl(var(--text_on_dark));
 }
 
 [data-bs-theme="dark"] .alert {
@@ -466,6 +414,15 @@ h6:contains("Security Policy Headers Summary") {
 
 .card-body {
     color: hsl(var(--text_on_light));
+}
+
+/* Card body styling */
+.card-body {
+    color: hsl(var(--text_on_light));
+}
+
+[data-bs-theme="dark"] .card-body {
+    color: hsl(var(--text_on_dark));
 }
 
 /* Button text improvements */
