@@ -136,15 +136,14 @@
                                         </td>
                                         <td>
                                             {% if scan.status == 'completed' %}
-                                                {% set csp_count = (scan.csp_issues|from_json|length if scan.csp_issues else 0) %}
-                                                {% set cookie_count = (scan.cookie_issues|from_json|length if scan.cookie_issues else 0) %}
-                                                {% set header_count = (scan.header_issues|from_json|length if scan.header_issues else 0) %}
-                                                {% set total_issues = csp_count + cookie_count + header_count %}
+                                                {% set test_results = scan.csp_issues|from_json if scan.csp_issues else [] %}
+                                                {% set failed_tests = test_results|selectattr('status', 'equalto', 'Failed')|list if test_results else [] %}
+                                                {% set total_issues = failed_tests|length %}
                                                 <small>
                                                     {% if total_issues > 0 %}
-                                                        <span class="text-danger">{{ total_issues }} issues</span>
+                                                        <span class="text-danger">{{ total_issues }} failed tests</span>
                                                     {% else %}
-                                                        <span class="text-success">No issues</span>
+                                                        <span class="text-success">No failed tests</span>
                                                     {% endif %}
                                                 </small>
                                             {% else %}

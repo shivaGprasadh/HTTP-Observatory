@@ -225,15 +225,15 @@
 }
 
 .alert-success {
-    background-color: rgba(25, 135, 84, 0.1) !important;
-    border-color: rgba(25, 135, 84, 0.3) !important;
-    color: hsl(142 76% 25%) !important;
+    background-color: rgba(25, 135, 84, 0.2) !important;
+    border-color: rgba(25, 135, 84, 0.4) !important;
+    color: white !important;
 }
 
 .alert-success p,
 .alert-success div,
 .alert-success span:not(.badge) {
-    color: hsl(142 76% 25%) !important;
+    color: white !important;
 }
 
 .alert-warning {
@@ -418,11 +418,18 @@ h6:contains("Security Policy Headers Summary") {
 
 /* Card body styling */
 .card-body {
-    color: hsl(var(--text_on_light));
+    color: white !important;
+}
+
+.card-body p,
+.card-body div,
+.card-body span:not(.badge),
+.card-body strong {
+    color: white !important;
 }
 
 [data-bs-theme="dark"] .card-body {
-    color: hsl(var(--text_on_dark));
+    color: white !important;
 }
 
 /* Button text improvements */
